@@ -33,12 +33,21 @@ public class ChatMessage {
     @Column(nullable = false)
     private Instant createdAt;
 
+    /** 用户消息附带图片的访问路径（如 /api/images/xxx.png），助手消息为空。 */
+    @Column(name = "image_url", length = 100)
+    private String imageUrl;
+
     protected ChatMessage() {
     }
 
     public ChatMessage(String role, String content, Instant createdAt) {
+        this(role, content, null, createdAt);
+    }
+
+    public ChatMessage(String role, String content, String imageUrl, Instant createdAt) {
         this.role = role;
         this.content = content;
+        this.imageUrl = imageUrl;
         this.createdAt = createdAt;
     }
 
@@ -46,5 +55,6 @@ public class ChatMessage {
     public Long getId() { return id; }
     public String getRole() { return role; }
     public String getContent() { return content; }
+    public String getImageUrl() { return imageUrl; }
     public Instant getCreatedAt() { return createdAt; }
 }

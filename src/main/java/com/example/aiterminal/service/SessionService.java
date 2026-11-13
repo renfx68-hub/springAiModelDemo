@@ -66,8 +66,13 @@ public class SessionService {
 
     @Transactional
     public void appendMessage(String sessionId, String role, String content) {
+        appendMessage(sessionId, role, content, null);
+    }
+
+    @Transactional
+    public void appendMessage(String sessionId, String role, String content, String imageUrl) {
         ChatSession session = requireSession(sessionId);
-        session.addMessage(new ChatMessage(role, content, Instant.now()), Instant.now());
+        session.addMessage(new ChatMessage(role, content, imageUrl, Instant.now()), Instant.now());
         sessionRepository.save(session);
     }
 
@@ -77,6 +82,7 @@ public class SessionService {
     }
 
     private static MessageResponse toMessageResponse(ChatMessage message) {
-        return new MessageResponse(message.getId(), message.getRole(), message.getContent(), message.getCreatedAt());
+        return new MessageResponse(message.getId(), message.getRole(), message.getContent(),
+                message.getImageUrl(), message.getCreatedAt());
     }
 }
