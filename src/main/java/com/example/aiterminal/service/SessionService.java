@@ -70,10 +70,12 @@ public class SessionService {
     }
 
     @Transactional
-    public void appendMessage(String sessionId, String role, String content, String imageUrl) {
+    public MessageResponse appendMessage(String sessionId, String role, String content, String imageUrl) {
         ChatSession session = requireSession(sessionId);
-        session.addMessage(new ChatMessage(role, content, imageUrl, Instant.now()), Instant.now());
+        ChatMessage message = new ChatMessage(role, content, imageUrl, Instant.now());
+        session.addMessage(message, Instant.now());
         sessionRepository.save(session);
+        return new MessageResponse(message.getId(), role, content, imageUrl, message.getCreatedAt());
     }
 
     private static SessionResponse toResponse(ChatSession session, List<MessageResponse> messages) {

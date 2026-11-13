@@ -59,6 +59,18 @@ public class ImageStorageService {
         } catch (IllegalArgumentException exception) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "图片 Base64 解码失败");
         }
+        return saveBytes(mime, bytes);
+    }
+
+    /** 保存原始图片字节（用于文生图结果落盘），返回访问 URL。 */
+    public String save(byte[] bytes, String mime) {
+        if (bytes == null || bytes.length == 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "图片内容为空");
+        }
+        return saveBytes(mime, bytes);
+    }
+
+    private String saveBytes(String mime, byte[] bytes) {
         if (bytes.length == 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "图片内容为空");
         }
