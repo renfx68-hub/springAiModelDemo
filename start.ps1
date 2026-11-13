@@ -3,15 +3,25 @@
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 
-# 1. 加载 .env 为进程环境变量
+# 1. 加载 .env 为进程环境变量（按首个 = 切分，避免正则与特殊字符问题）
+$keyLength = 0
 if (Test-Path "$root\.env") {
-    Get-Content "$root\.env" | ForEach-Object {
-        if ($_ -match '^\s*([^#=\s]+)\s*=\s*(.*?)\s*$') {
-            [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
-        }
+    foreach ($line in [System.IO.File]::ReadAllLines("$root\.env")) {
+        $text = $line.Trim()
+        if (-not $text -or $text.StartsWith('#')) { continue }
+        $index = $text.IndexOf('=')
+        if ($index -lt 1) { continue }
+        $name = $text.Substring(0, $index).Trim()
+        $value = $text.Substring($index + 1).Trim()
+        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+        if ($name -eq 'OPENAI_API_KEY') { $keyLength = $value.Length }
     }
+    Write-Host ("已加载 .env：API Key 长度 {0}，模型 {1}" -f $keyLength, $env:OPENAI_MODEL) -ForegroundColor DarkGray
 } else {
     Write-Host '未找到 .env，请复制 .env.example 为 .env 并填写 OPENAI_API_KEY' -ForegroundColor Yellow
+}
+if ($keyLength -eq 0) {
+    Write-Host '警告：未读取到 OPENAI_API_KEY，聊天会提示"尚未配置模型 API Key"' -ForegroundColor Yellow
 }
 
 # 2. 定位 Java：优先用工作区内置 JDK，其次系统 PATH
