@@ -81,13 +81,21 @@ MySQL 数据保存在 `mysql-data` volume。示例密码仅供本地开发，部
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| `POST` | `/api/chat/stream` | SSE 流式对话，JSON：`{"sessionId":"...","message":"..."}` |
+| `POST` | `/api/chat/stream` | SSE 流式对话，JSON：`{"sessionId":"...","message":"...","imageBase64?":"..."}` |
 | `GET` | `/api/sessions` | 会话列表 |
 | `POST` | `/api/sessions` | 创建会话，JSON：`{"title":"..."}` |
 | `GET` | `/api/sessions/{id}` | 会话及完整消息历史 |
 | `PATCH` | `/api/sessions/{id}` | 重命名会话 |
 | `DELETE` | `/api/sessions/{id}` | 删除会话及消息 |
+| `GET` | `/api/images/{name}` | 读取用户上传的图片 |
 | `GET` | `/actuator/health` | 健康检查；仅暴露 health actuator |
+
+## 图片识别（看图说话）
+
+- 前端支持 📎 选择图片或 **Ctrl+V 直接粘贴截图**，图片随消息发送（Base64，≤8MB，PNG/JPEG/WebP/GIF）
+- 带图消息自动切换视觉模型 `OPENAI_VISION_MODEL`（默认 `glm-4.5v`），无图继续用对话模型
+- 图片保存于 `data/uploads/`，消息表存引用路径，刷新历史仍能看到图片
+- 追问同一张图时，上下文会重建图片，可继续围绕图片提问
 
 聊天流通过 `delta` 事件增量推送文本，以 `done` 结束；模型异常通过 `error` 事件返回错误码和可读消息。浏览器中止请求会取消 Reactor 上游订阅，并异步保存已收到的回答片段。
 

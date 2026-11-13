@@ -47,9 +47,19 @@ export function appendRenderedMessage(list, role, content, options = {}) {
   avatar.textContent = role === 'user' ? '你' : '✦';
   const body = document.createElement('div');
   body.className = 'message-content';
+  const imageSrc = options.imageSrc || options.imageUrl;
+  if (role === 'user' && imageSrc) {
+    const image = document.createElement('img');
+    image.className = 'message-image';
+    image.src = imageSrc;
+    image.alt = '用户上传的图片';
+    image.loading = 'lazy';
+    body.append(image);
+  }
   if (options.loading) {
-    body.innerHTML = '<div class="typing-indicator"><i></i><i></i><i></i></div>';
-  } else {
+    body.insertAdjacentHTML('beforeend',
+      '<div class="typing-indicator"><i></i><i></i><i></i></div>');
+  } else if (content) {
     body.append(renderMarkdown(content));
   }
   row.append(avatar, body);

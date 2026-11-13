@@ -7,9 +7,15 @@ const input = $('#messageInput');
 const sendButton = $('#sendButton');
 const stopButton = $('#stopButton');
 const welcome = $('#welcome');
+const attachButton = $('#attachButton');
+const imageInput = $('#imageInput');
+const imagePreview = $('#imagePreview');
+const previewImg = $('#previewImg');
+const removeImage = $('#removeImage');
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const state = {
   session: null, sessions: [], controller: null, busy: false,
-  activeAssistant: null, receivedDelta: false,
+  activeAssistant: null, receivedDelta: false, pendingImage: null,
 };
 
 function showToast(message) {
@@ -42,6 +48,27 @@ function updateBusy(busy) {
 
 function scrollToBottom() {
   $('#conversation').scrollTop = $('#conversation').scrollHeight;
+}
+
+function clearPendingImage() {
+  state.pendingImage = null;
+  imagePreview.hidden = true;
+  previewImg.removeAttribute('src');
+  imageInput.value = '';
+}
+
+function selectImageFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('只能选择图片文件'); return; }
+  if (file.size > MAX_IMAGE_BYTES) { showToast('图片不能超过 8MB'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    state.pendingImage = String(reader.result);
+    previewImg.src = state.pendingImage;
+    imagePreview.hidden = false;
+  };
+  reader.onerror = () => showToast('图片读取失败，请重试');
+  reader.readAsDataURL(file);
 }
 
 function renderSessionItems() {
@@ -97,7 +124,7 @@ async function selectSession(id) {
     welcome.hidden = session.messages.length > 0;
     $('#currentTitle').textContent = session.title;
     for (const message of session.messages) {
-      appendRenderedMessage(messageList, message.role, message.content);
+      appendRenderedMessage(messageList, message.role, message.content, { imageUrl: message.imageUrl });
     }
     localStorage.setItem('ai-terminal-session', session.id);
     renderSessionItems();
@@ -162,7 +189,7 @@ async function sendMessage(text) {
       $('#currentTitle').textContent = renamed.title;
     }
     welcome.hidden = true;
-    appendRenderedMessage(messageList, 'user', text);
+    appendRenderedMessage(messageList, 'user', text, { imageSrc: state.pendingImage });
     const assistant = appendRenderedMessage(messageList, 'assistant', '', { loading: true });
     state.activeAssistant = assistant;
     state.receivedDelta = false;
@@ -172,7 +199,11 @@ async function sendMessage(text) {
     const response = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify({ sessionId: state.session.id, message: text }),
+      body: JSON.stringify({
+        sessionId: state.session.id,
+        message: text,
+        imageBase64: state.pendingImage || undefined,
+      }),
       signal: state.controller.signal,
     });
     if (!response.ok) throw new Error(`聊天请求失败（${response.status}）`);
@@ -203,6 +234,7 @@ async function sendMessage(text) {
     state.controller = null;
     state.activeAssistant = null;
     state.receivedDelta = false;
+    clearPendingImage();
     updateBusy(false);
     input.disabled = false;
     input.focus();
@@ -252,6 +284,17 @@ $('#renameSession').addEventListener('click', async () => {
 });
 $('#openSidebar').addEventListener('click', () => $('#sidebar').classList.add('sidebar-open'));
 $('#closeSidebar').addEventListener('click', () => $('#sidebar').classList.remove('sidebar-open'));
+attachButton.addEventListener('click', () => imageInput.click());
+imageInput.addEventListener('change', () => selectImageFile(imageInput.files[0]));
+removeImage.addEventListener('click', clearPendingImage);
+input.addEventListener('paste', (event) => {
+  const items = event.clipboardData?.items || [];
+  const file = [...items].find((item) => item.type.startsWith('image/'))?.getAsFile();
+  if (file) {
+    event.preventDefault();
+    selectImageFile(file);
+  }
+});
 
 try {
   await refreshSessions();
