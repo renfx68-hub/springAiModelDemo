@@ -76,6 +76,8 @@ button { color: inherit; }
 .send-button:disabled { opacity: .45; cursor: default; }
 .stop-button { padding: 6px 9px; color: #dbdce2; background: #31333c; border: 1px solid #454853; border-radius: 6px; cursor: pointer; font-size: 12px; }
 .attach-button { width: 30px; height: 30px; font-size: 16px; }
+.paint-button { width: 30px; height: 30px; font-size: 16px; }
+.paint-button.active { color: #fff; background: #4a3f63; }
 .image-preview { position: relative; display: inline-flex; margin: 2px 0 10px; }
 .image-preview[hidden] { display: none; }
 .image-preview img { max-width: 190px; max-height: 116px; border: 1px solid var(--border); border-radius: 9px; }

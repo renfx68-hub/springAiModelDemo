@@ -8,6 +8,7 @@ const sendButton = $('#sendButton');
 const stopButton = $('#stopButton');
 const welcome = $('#welcome');
 const attachButton = $('#attachButton');
+const paintButton = $('#paintButton');
 const imageInput = $('#imageInput');
 const imagePreview = $('#imagePreview');
 const previewImg = $('#previewImg');
@@ -15,7 +16,7 @@ const removeImage = $('#removeImage');
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const state = {
   session: null, sessions: [], controller: null, busy: false,
-  activeAssistant: null, receivedDelta: false, pendingImage: null,
+  activeAssistant: null, receivedDelta: false, pendingImage: null, paintMode: false,
 };
 
 function showToast(message) {
@@ -241,13 +242,59 @@ async function sendMessage(text) {
   }
 }
 
+async function generateImage(text) {
+  if (state.busy || !text.trim()) return;
+  try {
+    if (!state.session) {
+      const created = await api('/api/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ title: text.trim().slice(0, 60) }),
+      });
+      state.session = created;
+      localStorage.setItem('ai-terminal-session', created.id);
+    } else if (state.session.title === '新建会话') {
+      const renamed = await api(`/api/sessions/${encodeURIComponent(state.session.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title: text.trim().slice(0, 60) }),
+      });
+      state.session = { ...state.session, ...renamed };
+      $('#currentTitle').textContent = renamed.title;
+    }
+    welcome.hidden = true;
+    appendRenderedMessage(messageList, 'user', text);
+    const assistant = appendRenderedMessage(messageList, 'assistant', '', { loading: true });
+    state.activeAssistant = assistant;
+    updateBusy(true);
+    scrollToBottom();
+    const message = await api('/api/images/generate', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: state.session.id, prompt: text }),
+    });
+    assistant.row.remove();
+    appendRenderedMessage(messageList, 'assistant', message.content, { imageUrl: message.imageUrl });
+    scrollToBottom();
+    await refreshSessions();
+    state.session = await api(`/api/sessions/${encodeURIComponent(state.session.id)}`);
+    renderSessionItems();
+  } catch (error) {
+    state.activeAssistant?.row.remove();
+    showToast(error.message || '图片生成失败，请稍后重试。');
+  } finally {
+    state.activeAssistant = null;
+    updateBusy(false);
+    input.disabled = false;
+    input.focus();
+  }
+}
+
 $('#chatForm').addEventListener('submit', (event) => {
   event.preventDefault();
   const text = input.value;
   if (!text.trim() || state.busy) return;
   input.value = '';
   input.style.height = 'auto';
-  void sendMessage(text);
+  if (state.paintMode) void generateImage(text);
+  else void sendMessage(text);
 });
 input.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -285,6 +332,11 @@ $('#renameSession').addEventListener('click', async () => {
 $('#openSidebar').addEventListener('click', () => $('#sidebar').classList.add('sidebar-open'));
 $('#closeSidebar').addEventListener('click', () => $('#sidebar').classList.remove('sidebar-open'));
 attachButton.addEventListener('click', () => imageInput.click());
+paintButton.addEventListener('click', () => {
+  state.paintMode = !state.paintMode;
+  paintButton.classList.toggle('active', state.paintMode);
+  showToast(state.paintMode ? '画画模式已开启：输入描述直接生成图片' : '已切回聊天模式');
+});
 imageInput.addEventListener('change', () => selectImageFile(imageInput.files[0]));
 removeImage.addEventListener('click', clearPendingImage);
 input.addEventListener('paste', (event) => {

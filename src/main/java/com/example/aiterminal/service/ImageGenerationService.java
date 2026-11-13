@@ -29,6 +29,7 @@ public class ImageGenerationService {
     private final ImageStorageService imageStorage;
     private final SessionService sessionService;
     private final ImageSettings settings;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final String apiKey;
 
     public ImageGenerationService(
@@ -36,10 +37,12 @@ public class ImageGenerationService {
             @Value("${spring.ai.openai.api-key:}") String apiKey,
             ImageStorageService imageStorage,
             SessionService sessionService,
-            ImageSettings settings) {
+            ImageSettings settings,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.imageStorage = imageStorage;
         this.sessionService = sessionService;
         this.settings = settings;
+        this.objectMapper = objectMapper;
         this.apiKey = apiKey == null ? "" : apiKey;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5_000);
@@ -65,20 +68,14 @@ public class ImageGenerationService {
     }
 
     private String requestGeneration(String prompt) {
+        String raw;
         try {
-            GenerationResponse response = restClient.post()
+            raw = restClient.post()
                     .uri(settings.generationsPath())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(new GenerationRequest(settings.model(), prompt))
                     .retrieve()
-                    .body(GenerationResponse.class);
-            if (response == null || response.data() == null || response.data().isEmpty()
-                    || response.data().get(0).url() == null || response.data().get(0).url().isBlank()) {
-                throw new ApiException(HttpStatus.BAD_GATEWAY, "图片生成服务未返回图片，请稍后重试");
-            }
-            return response.data().get(0).url();
-        } catch (ApiException exception) {
-            throw exception;
+                    .body(String.class);
         } catch (RestClientResponseException exception) {
             log.warn("图片生成接口失败：{} {}", exception.getStatusCode(), exception.getResponseBodyAsString());
             throw new ApiException(HttpStatus.BAD_GATEWAY,
@@ -87,6 +84,26 @@ public class ImageGenerationService {
             log.warn("图片生成请求异常", exception);
             throw new ApiException(HttpStatus.BAD_GATEWAY, "图片生成失败，请稍后重试");
         }
+        GenerationResponse response;
+        try {
+            response = objectMapper.readValue(raw, GenerationResponse.class);
+        } catch (Exception exception) {
+            log.warn("图片生成响应解析失败：{}", abbreviate(raw));
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "图片生成响应异常，请稍后重试");
+        }
+        if (response == null || response.data() == null || response.data().isEmpty()
+                || response.data().get(0).url() == null || response.data().get(0).url().isBlank()) {
+            log.warn("图片生成响应缺少图片 URL：{}", abbreviate(raw));
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "图片生成服务未返回图片，请稍后重试");
+        }
+        return response.data().get(0).url();
+    }
+
+    private static String abbreviate(String text) {
+        if (text == null) {
+            return "(空响应)";
+        }
+        return text.length() <= 600 ? text : text.substring(0, 600) + "...(截断)";
     }
 
     private byte[] download(String url) {

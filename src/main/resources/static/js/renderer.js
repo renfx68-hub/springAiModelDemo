@@ -48,7 +48,7 @@ export function appendRenderedMessage(list, role, content, options = {}) {
   const body = document.createElement('div');
   body.className = 'message-content';
   const imageSrc = options.imageSrc || options.imageUrl;
-  if (role === 'user' && imageSrc) {
+  if (imageSrc) {
     const image = document.createElement('img');
     image.className = 'message-image';
     image.src = imageSrc;
