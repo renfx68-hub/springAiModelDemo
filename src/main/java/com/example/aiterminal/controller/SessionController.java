@@ -39,18 +39,18 @@ public class SessionController {
     }
 
     @GetMapping("/{id}")
-    public SessionResponse get(@PathVariable String id) {
+    public SessionResponse get(@PathVariable("id") String id) {
         return sessionService.get(id);
     }
 
     @PatchMapping("/{id}")
-    public SessionResponse rename(@PathVariable String id, @Valid @RequestBody SessionRequest request) {
+    public SessionResponse rename(@PathVariable("id") String id, @Valid @RequestBody SessionRequest request) {
         return sessionService.rename(id, request.title());
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable String id) {
+    public void delete(@PathVariable("id") String id) {
         sessionService.delete(id);
     }
 }
