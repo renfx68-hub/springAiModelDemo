@@ -61,3 +61,7 @@ app:
     temperature: ${AI_TEMPERATURE:0.7}
     max-tokens: ${AI_MAX_TOKENS:2048}
     top-p: ${AI_TOP_P:1.0}
+    # 消息附带图片时使用的视觉模型（看图说话）
+    vision-model: ${OPENAI_VISION_MODEL:glm-4.5v}
+    # 用户上传图片的本地目录
+    upload-dir: ${APP_UPLOAD_DIR:data/uploads}

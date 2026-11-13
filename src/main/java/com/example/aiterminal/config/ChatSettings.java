@@ -9,5 +9,6 @@ public record ChatSettings(
         int maxHistoryTurns,
         double temperature,
         int maxTokens,
-        double topP) {
+        double topP,
+        String visionModel) {
 }

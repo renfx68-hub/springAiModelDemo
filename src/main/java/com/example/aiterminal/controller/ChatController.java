@@ -25,7 +25,7 @@ public class ChatController {
 
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<StreamEvent>> stream(@Valid @RequestBody ChatRequest request) {
-        return chatService.stream(request.sessionId(), request.message())
+        return chatService.stream(request.sessionId(), request.message(), request.imageBase64())
                 .map(event -> ServerSentEvent.<StreamEvent>builder(event)
                         .event(event.type())
                         .build());

@@ -18,8 +18,11 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.util.MimeType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -35,6 +38,7 @@ public class ChatService {
     private final SessionService sessionService;
     private final ChatMessageRepository messageRepository;
     private final ChatSettings settings;
+    private final ImageStorageService imageStorage;
     private final String apiKey;
 
     public ChatService(
@@ -42,11 +46,13 @@ public class ChatService {
             SessionService sessionService,
             ChatMessageRepository messageRepository,
             ChatSettings settings,
+            ImageStorageService imageStorage,
             @org.springframework.beans.factory.annotation.Value("${spring.ai.openai.api-key:}") String apiKey) {
         this.chatClient = chatClient;
         this.sessionService = sessionService;
         this.messageRepository = messageRepository;
         this.settings = settings;
+        this.imageStorage = imageStorage;
         this.apiKey = apiKey;
     }
 
@@ -55,13 +61,15 @@ public class ChatService {
         return messageRepository.findBySessionIdOrderByCreatedAtAscIdAsc(sessionId);
     }
 
-    public Flux<StreamEvent> stream(String sessionId, String userText) {
+    public Flux<StreamEvent> stream(String sessionId, String userText, String imageBase64) {
         if (apiKey.isBlank() || "missing".equalsIgnoreCase(apiKey)) {
             return Flux.just(StreamEvent.error("API_KEY_MISSING", "尚未配置模型 API Key，请设置 OPENAI_API_KEY 后重启服务。"));
         }
 
         try {
             sessionService.requireSession(sessionId);
+            boolean hasImage = imageBase64 != null && !imageBase64.isBlank();
+            String imageUrl = hasImage ? imageStorage.save(imageBase64.trim()) : null;
             List<ChatMessage> history = trimHistory(loadHistory(sessionId), settings.maxHistoryTurns());
             List<Message> promptMessages = new ArrayList<>();
             promptMessages.add(new SystemMessage(settings.systemPrompt().replace(
@@ -69,16 +77,19 @@ public class ChatService {
             for (ChatMessage message : history) {
                 promptMessages.add("assistant".equals(message.getRole())
                         ? new AssistantMessage(message.getContent())
-                        : new UserMessage(message.getContent()));
+                        : buildUserMessage(message.getContent(), message.getImageUrl()));
             }
-            promptMessages.add(new UserMessage(userText));
-            sessionService.appendMessage(sessionId, "user", userText);
+            promptMessages.add(buildUserMessage(userText, imageUrl));
+            sessionService.appendMessage(sessionId, "user", userText, imageUrl);
 
-            var options = OpenAiChatOptions.builder()
+            var optionsBuilder = OpenAiChatOptions.builder()
                     .temperature(settings.temperature())
                     .maxTokens(settings.maxTokens())
-                    .topP(settings.topP())
-                    .build();
+                    .topP(settings.topP());
+            if (hasImage && settings.visionModel() != null && !settings.visionModel().isBlank()) {
+                optionsBuilder.model(settings.visionModel());
+            }
+            var options = optionsBuilder.build();
             AtomicReference<StringBuilder> answer = new AtomicReference<>(new StringBuilder());
             AtomicBoolean saved = new AtomicBoolean();
             Flux<ChatResponse> modelStream = chatClient.prompt(
@@ -115,6 +126,22 @@ public class ChatService {
         } catch (RuntimeException exception) {
             return Flux.just(toErrorEvent(exception));
         }
+    }
+
+    /** 构建用户消息；带图片时附加媒体内容，图片文件缺失时退化为纯文本。 */
+    private Message buildUserMessage(String text, String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return new UserMessage(text);
+        }
+        byte[] bytes = imageStorage.loadBytes(imageUrl);
+        if (bytes == null) {
+            return new UserMessage(text);
+        }
+        MimeType mime = MimeType.valueOf(imageStorage.mimeOfUrl(imageUrl));
+        return UserMessage.builder()
+                .text(text)
+                .media(List.of(new Media(mime, new ByteArrayResource(bytes))))
+                .build();
     }
 
     static List<ChatMessage> trimHistory(List<ChatMessage> messages, int maxTurns) {

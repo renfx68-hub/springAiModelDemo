@@ -96,6 +96,23 @@ public class ImageStorageService {
         };
     }
 
+    /** 按 /api/images/{name} 形式的 URL 读取图片字节；文件缺失时返回 null。 */
+    public byte[] loadBytes(String imageUrl) {
+        try {
+            return Files.readAllBytes(resolve(fileNameOf(imageUrl)));
+        } catch (IOException exception) {
+            return null;
+        }
+    }
+
+    public String mimeOfUrl(String imageUrl) {
+        return mimeOf(fileNameOf(imageUrl));
+    }
+
+    private static String fileNameOf(String imageUrl) {
+        return imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+    }
+
     private static String extensionOf(String mime) {
         return switch (mime) {
             case "image/jpeg" -> "jpg";
