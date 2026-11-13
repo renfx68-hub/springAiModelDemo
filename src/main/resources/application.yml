@@ -65,8 +65,7 @@ app:
     vision-model: ${OPENAI_VISION_MODEL:glm-4.5v}
     # 用户上传图片的本地目录
     upload-dir: ${APP_UPLOAD_DIR:data/uploads}
-
-# 文生图（CogView；cogview-3-flash 免费，cogview-4 效果更好但收费）
-image:
-  model: ${OPENAI_IMAGE_MODEL:cogview-3-flash}
-  generations-path: ${OPENAI_IMAGE_GENERATIONS_PATH:/images/generations}
+  # 文生图（CogView；cogview-3-flash 免费，cogview-4 效果更好但收费）
+  image:
+    model: ${OPENAI_IMAGE_MODEL:cogview-3-flash}
+    generations-path: ${OPENAI_IMAGE_GENERATIONS_PATH:/images/generations}
