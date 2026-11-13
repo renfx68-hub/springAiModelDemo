@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: ai-terminal
+  datasource:
+    url: jdbc:h2:file:./data/ai-terminal;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:missing}
+      # 各兼容厂商 base-url（与 completions-path 拼成完整地址，均无需带 /v1 时另行说明）：
+      #   智谱 GLM：  https://open.bigmodel.cn/api/paas/v4     （glm-4-flash 永久免费，注册送 2000 万 Token）
+      #   DeepSeek：  https://api.deepseek.com
+      #   通义千问：  https://dashscope.aliyuncs.com/compatible-mode/v1
+      #   月之暗面：  https://api.moonshot.cn/v1
+      #   硅基流动：  https://api.siliconflow.cn/v1
+      #   OpenAI：    https://api.openai.com/v1
+      #   Ollama：    http://localhost:11434/v1
+      base-url: ${OPENAI_BASE_URL:https://open.bigmodel.cn/api/paas/v4}
+      chat:
+        # 智谱/DeepSeek/通义/Ollama 等均为 /chat/completions；仅 OpenAI 官方需要完整路径
+        completions-path: ${OPENAI_COMPLETIONS_PATH:/chat/completions}
+        options:
+          model: ${OPENAI_MODEL:glm-4-flash}
+          temperature: ${AI_TEMPERATURE:0.7}
+          max-tokens: ${AI_MAX_TOKENS:2048}
+          top-p: ${AI_TOP_P:1.0}
+  sql:
+    init:
+      mode: never
+  servlet:
+    multipart:
+      enabled: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+app:
+  chat:
+    system-prompt: "你是一名可靠、清晰的 AI 助手。当前日期：{currentDate}。请使用用户所用语言回答。"
+    max-history-turns: ${AI_MAX_HISTORY_TURNS:12}
+    temperature: ${AI_TEMPERATURE:0.7}
+    max-tokens: ${AI_MAX_TOKENS:2048}
+    top-p: ${AI_TOP_P:1.0}
