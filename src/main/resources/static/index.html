@@ -30,7 +30,8 @@
       <nav class="session-list" id="sessionList" aria-label="会话列表"></nav>
       <div class="sidebar-bottom">
         <span class="connection-dot"></span>
-        <span>本地聊天终端</span>
+        <span class="user-email" id="userEmail">未登录</span>
+        <button type="button" class="logout-button" id="logoutButton" title="退出登录" hidden>退出</button>
       </div>
     </aside>
     <main class="main-panel">
@@ -69,6 +70,32 @@
         <div class="disclaimer">AI 生成内容仅供参考，请核实重要信息。</div>
       </div>
     </main>
+  </div>
+  <div class="auth-overlay" id="authOverlay" hidden>
+    <div class="auth-card">
+      <div class="brand auth-brand"><span class="brand-mark">🌶️</span><span>辣条log</span></div>
+      <p class="auth-sub">登录后开始聊天，历史会话跟着你的账号走</p>
+      <form id="authForm" class="auth-form">
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="auth-tab active" data-mode="login" role="tab">登录</button>
+          <button type="button" class="auth-tab" data-mode="register" role="tab">注册</button>
+        </div>
+        <label class="auth-field">
+          <span>邮箱</span>
+          <input type="email" id="authEmail" required autocomplete="email" placeholder="you@example.com" maxlength="200">
+        </label>
+        <label class="auth-field" id="authNicknameField" hidden>
+          <span>昵称（可选）</span>
+          <input type="text" id="authNickname" maxlength="60" autocomplete="nickname" placeholder="老板">
+        </label>
+        <label class="auth-field">
+          <span>密码</span>
+          <input type="password" id="authPassword" required minlength="8" maxlength="72" autocomplete="current-password" placeholder="至少 8 位">
+        </label>
+        <div class="auth-error" id="authError" hidden></div>
+        <button type="submit" class="auth-submit" id="authSubmit">登录</button>
+      </form>
+    </div>
   </div>
   <div class="toast-region" id="toastRegion" aria-live="assertive"></div>
   <script src="/vendor/marked.min.js"></script>

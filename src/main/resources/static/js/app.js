@@ -19,9 +19,27 @@ const previewImg = $('#previewImg');
 const removeImage = $('#removeImage');
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const state = {
-  session: null, sessions: [], controller: null, busy: false,
+  session: null, sessions: [], controller: null, busy: false, user: null,
   activeAssistant: null, receivedDelta: false, pendingImage: null, paintMode: false, professional: false,
 };
+
+const TOKEN_KEY = 'latiao-token';
+
+function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
+
+function setToken(token) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch { /* 忽略存储失败 */ }
+}
+
+function authHeaders(extra = {}) {
+  const token = getToken();
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+}
 
 function showToast(message) {
   const toast = document.createElement('div');
@@ -34,8 +52,13 @@ function showToast(message) {
 async function api(path, options = {}) {
   const response = await fetch(path, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: authHeaders({ 'Content-Type': 'application/json', ...options.headers }),
   });
+  if (response.status === 401) {
+    setToken(null);
+    showAuth('登录已过期，请重新登录');
+    throw new Error('请先登录');
+  }
   if (!response.ok) {
     let message = `请求失败（${response.status}）`;
     try { message = (await response.json()).message || message; } catch { /* non-JSON response */ }
@@ -203,7 +226,7 @@ async function sendMessage(text) {
     scrollToBottom();
     const response = await fetch('/api/chat/stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      headers: authHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream' }),
       body: JSON.stringify({
         sessionId: state.session.id,
         message: text,
@@ -400,7 +423,7 @@ async function transcribeAndFill(blob) {
   try {
     const form = new FormData();
     form.append('file', blob, 'voice.wav');
-    const response = await fetch('/api/voice/transcribe', { method: 'POST', body: form });
+    const response = await fetch('/api/voice/transcribe', { method: 'POST', headers: authHeaders(), body: form });
     if (!response.ok) {
       let message = `语音识别失败（${response.status}）`;
       try { message = (await response.json()).message || message; } catch { /* non-JSON */ }
@@ -435,7 +458,7 @@ messageList.addEventListener('click', async (event) => {
     }
     const response = await fetch('/api/voice/speak', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ text }),
     });
     if (!response.ok) {
@@ -480,12 +503,118 @@ input.addEventListener('paste', (event) => {
   }
 });
 
-try {
+const authOverlay = $('#authOverlay');
+const authForm = $('#authForm');
+const authError = $('#authError');
+const authSubmit = $('#authSubmit');
+const authNicknameField = $('#authNicknameField');
+const authPassword = $('#authPassword');
+let authMode = 'login';
+
+function setAuthError(message) {
+  authError.hidden = !message;
+  authError.textContent = message || '';
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.mode === mode);
+  });
+  authNicknameField.hidden = mode !== 'register';
+  authSubmit.textContent = mode === 'register' ? '注册并登录' : '登录';
+  authPassword.autocomplete = mode === 'register' ? 'new-password' : 'current-password';
+  setAuthError('');
+}
+
+function showAuth(message) {
+  authOverlay.hidden = false;
+  setAuthError(message);
+  window.setTimeout(() => {
+    $(authMode === 'register' ? '#authNickname' : '#authEmail')?.focus();
+  }, 60);
+}
+
+function hideAuth() {
+  authOverlay.hidden = true;
+}
+
+function renderUser(user) {
+  $('#userEmail').textContent = user ? (user.nickname || user.email) : '未登录';
+  $('#userEmail').title = user ? user.email : '';
+  $('#logoutButton').hidden = !user;
+}
+
+async function loadWorkspace() {
   await refreshSessions();
   const savedId = localStorage.getItem('ai-terminal-session');
   const saved = state.sessions.find((session) => session.id === savedId);
   if (saved) await selectSession(saved.id);
   else if (state.sessions.length) await selectSession(state.sessions[0].id);
-} catch (error) {
-  showToast(`无法载入会话：${error.message}`);
 }
+
+document.querySelectorAll('.auth-tab').forEach((tab) => {
+  tab.addEventListener('click', () => setAuthMode(tab.dataset.mode));
+});
+
+authForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const email = $('#authEmail').value.trim();
+  const password = authPassword.value;
+  if (!email || !password) {
+    setAuthError('请填写邮箱和密码');
+    return;
+  }
+  if (authMode === 'register' && password.length < 8) {
+    setAuthError('密码至少 8 位');
+    return;
+  }
+  authSubmit.disabled = true;
+  setAuthError('');
+  try {
+    const result = await api(authMode === 'register' ? '/api/auth/register' : '/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, nickname: $('#authNickname').value.trim() || undefined }),
+    });
+    setToken(result.token);
+    state.user = result.user;
+    renderUser(result.user);
+    hideAuth();
+    await loadWorkspace();
+    showToast(authMode === 'register' ? '注册成功，欢迎老板！🌶️' : `欢迎回来，${result.user.nickname}`);
+  } catch (error) {
+    setAuthError(error.message || '操作失败，请稍后重试');
+  } finally {
+    authSubmit.disabled = false;
+  }
+});
+
+$('#logoutButton').addEventListener('click', async () => {
+  try { await api('/api/auth/logout', { method: 'POST' }); } catch { /* 无状态登出，忽略错误 */ }
+  setToken(null);
+  state.user = null;
+  renderUser(null);
+  resetConversation();
+  setAuthMode('login');
+  showAuth();
+});
+
+(async function bootstrap() {
+  if (!getToken()) {
+    setAuthMode('login');
+    showAuth();
+    return;
+  }
+  try {
+    const me = await api('/api/auth/me');
+    state.user = me;
+    renderUser(me);
+    hideAuth();
+    await loadWorkspace();
+  } catch (error) {
+    setToken(null);
+    renderUser(null);
+    setAuthMode('login');
+    showAuth();
+  }
+})();
