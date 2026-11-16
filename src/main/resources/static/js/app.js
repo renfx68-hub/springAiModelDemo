@@ -1,4 +1,7 @@
-import { appendRenderedMessage, renderMarkdown } from './renderer.js';
+import { appendRenderedMessage, renderMarkdown, attachSpeakButton } from './renderer.js';
+import {
+  startRecording, recognizeOnce, browserAsrAvailable, canSpeakWithBrowser, speakWithBrowser,
+} from './voice.js';
 
 const $ = (selector) => document.querySelector(selector);
 const sessionList = $('#sessionList');
@@ -227,6 +230,7 @@ async function sendMessage(text) {
       }
     });
     if (!receivedDelta) assistant.row.remove();
+    else attachSpeakButton(assistant.body, answer);
     await refreshSessions();
     state.session = await api(`/api/sessions/${encodeURIComponent(state.session.id)}`);
     renderSessionItems();
@@ -343,6 +347,110 @@ modeButton.addEventListener('click', () => {
   state.professional = !state.professional;
   modeButton.classList.toggle('active', state.professional);
   showToast(state.professional ? '专业模式已开启：严谨回答，不上梗' : '已切回辣条模式 🌶️');
+});
+
+const micButton = $('#micButton');
+let recording = null;
+let recognizing = null;
+micButton.addEventListener('click', async () => {
+  if (recognizing) {
+    recognizing.stop();
+    return;
+  }
+  if (recording) {
+    const clip = recording;
+    recording = null;
+    micButton.classList.remove('active');
+    await transcribeAndFill(await clip.stop());
+    return;
+  }
+  if (state.busy) return;
+  // 优先浏览器原生识别（免费即时），不可用时回退到后端 ASR
+  if (browserAsrAvailable()) {
+    const base = input.value;
+    try {
+      recognizing = recognizeOnce((text) => {
+        input.value = base ? `${base} ${text}` : text;
+        input.dispatchEvent(new Event('input'));
+      });
+      micButton.classList.add('active');
+      showToast('正在听…说完再点一下 🎤');
+      const text = await recognizing.done;
+      if (!text) showToast('没听清，再试一次？');
+    } catch (error) {
+      showToast(error.message || '语音识别失败');
+    } finally {
+      recognizing = null;
+      micButton.classList.remove('active');
+      input.focus();
+    }
+    return;
+  }
+  try {
+    recording = await startRecording(60);
+    micButton.classList.add('active');
+    showToast('录音中…说完再点一下 🎤（最长 60 秒）');
+  } catch (error) {
+    showToast('无法访问麦克风，请检查浏览器权限');
+  }
+});
+
+async function transcribeAndFill(blob) {
+  micButton.disabled = true;
+  try {
+    const form = new FormData();
+    form.append('file', blob, 'voice.wav');
+    const response = await fetch('/api/voice/transcribe', { method: 'POST', body: form });
+    if (!response.ok) {
+      let message = `语音识别失败（${response.status}）`;
+      try { message = (await response.json()).message || message; } catch { /* non-JSON */ }
+      throw new Error(message);
+    }
+    const data = await response.json();
+    if (!data.text?.trim()) { showToast('没听清，再试一次？'); return; }
+    input.value = input.value ? `${input.value} ${data.text.trim()}` : data.text.trim();
+    input.dispatchEvent(new Event('input'));
+    input.focus();
+  } catch (error) {
+    showToast(error.message || '语音识别失败');
+  } finally {
+    micButton.disabled = false;
+  }
+}
+
+messageList.addEventListener('click', async (event) => {
+  const button = event.target.closest('.tts-button');
+  if (!button || button.dataset.playing) return;
+  const text = button.dataset.speak || '';
+  if (!text) return;
+  button.dataset.playing = '1';
+  button.textContent = '⏳';
+  const reset = () => { button.textContent = '🔊'; delete button.dataset.playing; };
+  try {
+    // 优先系统语音（免费即时）；没有中文语音时回退后端 TTS
+    if (await canSpeakWithBrowser()) {
+      await speakWithBrowser(text);
+      reset();
+      return;
+    }
+    const response = await fetch('/api/voice/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) {
+      let message = `语音合成失败（${response.status}）`;
+      try { message = (await response.json()).message || message; } catch { /* non-JSON */ }
+      throw new Error(message);
+    }
+    const audio = new Audio(URL.createObjectURL(await response.blob()));
+    audio.onended = reset;
+    audio.onerror = reset;
+    await audio.play();
+  } catch (error) {
+    reset();
+    showToast(error.message || '朗读失败');
+  }
 });
 
 const themeToggle = $('#themeToggle');

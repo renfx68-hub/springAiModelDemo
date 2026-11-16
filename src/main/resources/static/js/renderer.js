@@ -61,8 +61,21 @@ export function appendRenderedMessage(list, role, content, options = {}) {
       '<div class="typing-indicator"><i></i><i></i><i></i></div>');
   } else if (content) {
     body.append(renderMarkdown(content));
+    if (role === 'assistant') attachSpeakButton(body, content);
   }
   row.append(avatar, body);
   list.append(row);
   return { row, body };
+}
+
+/** 在助手消息末尾追加 🔊 朗读按钮（TTS 文本存于 dataset）。 */
+export function attachSpeakButton(body, text) {
+  if (!text || text.length > 4000) return;
+  const speak = document.createElement('button');
+  speak.type = 'button';
+  speak.className = 'tts-button';
+  speak.textContent = '🔊';
+  speak.title = '朗读这条回复';
+  speak.dataset.speak = text;
+  body.append(speak);
 }

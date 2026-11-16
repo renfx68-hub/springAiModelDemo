@@ -90,6 +90,16 @@ MySQL 数据保存在 `mysql-data` volume。示例密码仅供本地开发，部
 | `GET` | `/api/images/{name}` | 读取用户上传的图片 |
 | `GET` | `/actuator/health` | 健康检查；仅暴露 health actuator |
 
+## 语音输入输出
+
+- 🎤 **语音输入**：点麦克风开始说话，再点一次结束，识别结果自动填入输入框（可编辑后发送）
+  - 优先使用浏览器原生识别（Chrome/Edge），无需额外费用
+  - 不支持时自动回退：录音转 WAV 上传 `/api/voice/transcribe`（`OPENAI_ASR_MODEL`，默认 `glm-asr`）
+- 🔊 **回复朗读**：助手消息末尾的喇叭按钮可朗读全文
+  - 优先使用系统语音（Windows/macOS 中文语音，免费即时）
+  - 无中文语音时回退 `/api/voice/speak`（`OPENAI_TTS_MODEL`，默认 `glm-tts` + `tongtong`）
+- 说明：智谱语音能力需要在控制台开通资源包；未开通时后端返回明确提示，浏览器通道不受影响
+
 ## 图片识别（看图说话）
 
 - 前端支持 📎 选择图片或 **Ctrl+V 直接粘贴截图**，图片随消息发送（Base64，≤8MB，PNG/JPEG/WebP/GIF）
