@@ -518,7 +518,14 @@ const authError = $('#authError');
 const authSubmit = $('#authSubmit');
 const authNicknameField = $('#authNicknameField');
 const authPassword = $('#authPassword');
+const authCodeField = $('#authCodeField');
+const authCode = $('#authCode');
+const sendCodeButton = $('#sendCodeButton');
+const forgotLink = $('#forgotLink');
+const backToLogin = $('#backToLogin');
 let authMode = 'login';
+let mailEnabled = false;
+let codeTimer = null;
 
 function setAuthError(message) {
   authError.hidden = !message;
@@ -530,10 +537,33 @@ function setAuthMode(mode) {
   document.querySelectorAll('.auth-tab').forEach((tab) => {
     tab.classList.toggle('active', tab.dataset.mode === mode);
   });
+  const isReset = mode === 'reset';
   authNicknameField.hidden = mode !== 'register';
-  authSubmit.textContent = mode === 'register' ? '注册并登录' : '登录';
-  authPassword.autocomplete = mode === 'register' ? 'new-password' : 'current-password';
+  // 验证码：注册（已开启邮件）与重置密码时显示
+  authCodeField.hidden = !((mode === 'register' && mailEnabled) || isReset);
+  forgotLink.hidden = !(mode === 'login' && mailEnabled);
+  backToLogin.hidden = !isReset;
+  authSubmit.textContent = mode === 'register' ? '注册并登录' : (isReset ? '重置密码' : '登录');
+  authPassword.autocomplete = mode === 'register' || isReset ? 'new-password' : 'current-password';
+  authCode.value = '';
   setAuthError('');
+}
+
+function startCodeCooldown(seconds) {
+  window.clearInterval(codeTimer);
+  let remain = seconds;
+  sendCodeButton.disabled = true;
+  sendCodeButton.textContent = `${remain}s 后重发`;
+  codeTimer = window.setInterval(() => {
+    remain -= 1;
+    if (remain <= 0) {
+      window.clearInterval(codeTimer);
+      sendCodeButton.disabled = false;
+      sendCodeButton.textContent = '获取验证码';
+      return;
+    }
+    sendCodeButton.textContent = `${remain}s 后重发`;
+  }, 1000);
 }
 
 function showAuth(message) {
@@ -566,24 +596,69 @@ document.querySelectorAll('.auth-tab').forEach((tab) => {
   tab.addEventListener('click', () => setAuthMode(tab.dataset.mode));
 });
 
+forgotLink.addEventListener('click', () => setAuthMode('reset'));
+backToLogin.addEventListener('click', () => setAuthMode('login'));
+
+sendCodeButton.addEventListener('click', async () => {
+  const email = $('#authEmail').value.trim();
+  if (!email) {
+    setAuthError('请先填写邮箱');
+    return;
+  }
+  sendCodeButton.disabled = true;
+  setAuthError('');
+  try {
+    const result = await api('/api/auth/code', {
+      method: 'POST',
+      body: JSON.stringify({ email, purpose: authMode === 'reset' ? 'reset' : 'register' }),
+    });
+    showToast('验证码已发送，请查收邮箱（含垃圾箱）');
+    if (result?.devCode) {
+      authCode.value = result.devCode;
+      showToast(`开发模式验证码：${result.devCode}`);
+    }
+    startCodeCooldown(60);
+  } catch (error) {
+    sendCodeButton.disabled = false;
+    setAuthError(error.message || '验证码发送失败');
+  }
+});
+
 authForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const email = $('#authEmail').value.trim();
   const password = authPassword.value;
+  const code = authCode.value.trim();
   if (!email || !password) {
     setAuthError('请填写邮箱和密码');
     return;
   }
-  if (authMode === 'register' && password.length < 8) {
+  if ((authMode === 'register' || authMode === 'reset') && password.length < 8) {
     setAuthError('密码至少 8 位');
+    return;
+  }
+  if (authCodeField.hidden === false && authMode !== 'login' && !code) {
+    setAuthError('请填写邮箱验证码');
     return;
   }
   authSubmit.disabled = true;
   setAuthError('');
   try {
+    if (authMode === 'reset') {
+      await api('/api/auth/reset', {
+        method: 'POST',
+        body: JSON.stringify({ email, code, newPassword: password }),
+      });
+      setAuthMode('login');
+      showToast('密码已重置，请用新密码登录');
+      return;
+    }
     const result = await api(authMode === 'register' ? '/api/auth/register' : '/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password, nickname: $('#authNickname').value.trim() || undefined }),
+      body: JSON.stringify({
+        email, password, code: code || undefined,
+        nickname: $('#authNickname').value.trim() || undefined,
+      }),
     });
     setToken(result.token);
     state.user = result.user;
@@ -609,6 +684,10 @@ $('#logoutButton').addEventListener('click', async () => {
 });
 
 (async function bootstrap() {
+  try {
+    const caps = await api('/api/auth/capabilities');
+    mailEnabled = Boolean(caps?.mailEnabled);
+  } catch { /* 取不到能力信息时按免验证码处理 */ }
   if (!getToken()) {
     setAuthMode('login');
     showAuth();

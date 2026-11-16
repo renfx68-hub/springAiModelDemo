@@ -169,6 +169,14 @@ button { color: inherit; }
 .auth-field input:focus { border-color: var(--accent); }
 .auth-error { margin-bottom: 11px; padding: 8px 10px; color: #ffb3ac; background: #3a1f1e; border: 1px solid #6b2d26; border-radius: 7px; font-size: 12px; }
 [data-theme="light"] .auth-error { color: #a8241a; background: #ffece9; border-color: #f3b9b2; }
+.auth-code-row { display: flex; gap: 8px; }
+.auth-code-row input { flex: 1; }
+.auth-code-button { flex: 0 0 auto; padding: 0 12px; height: 38px; color: var(--accent); background: transparent; border: 1px solid var(--border-strong); border-radius: 8px; cursor: pointer; font-size: 12.5px; white-space: nowrap; }
+.auth-code-button:hover:not(:disabled) { border-color: var(--accent); }
+.auth-code-button:disabled { opacity: .55; cursor: default; }
+.auth-links { display: flex; justify-content: space-between; min-height: 18px; margin: -2px 0 10px; }
+.auth-link { padding: 0; color: var(--text-dim); background: transparent; border: 0; cursor: pointer; font-size: 12px; }
+.auth-link:hover { color: var(--accent); }
 .auth-submit { width: 100%; height: 39px; color: #fff; background: var(--accent); border: 0; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 600; }
 .auth-submit:hover { background: var(--send-bg-hover); }
 .auth-submit:disabled { opacity: .6; cursor: default; }

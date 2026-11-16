@@ -109,7 +109,25 @@ MySQL 数据保存在 `mysql-data` volume。示例密码仅供本地开发，部
 - 密码用 BCrypt 存储；登录凭证是服务端自签 HS256 token（前端 localStorage 保存，默认 7 天有效）
 - **生产部署必须设置** `APP_AUTH_SECRET`（≥32 位随机串），否则使用默认开发密钥，任何人可伪造 token
 - 账号体系上线前的历史会话会归属给**第一个注册的账号**
-- 暂未实现：邮箱验证码/激活链接、找回密码（需配置 SMTP）、Google/微信登录
+- 暂未实现：Google/微信登录
+
+### 邮箱验证码与找回密码（QQ 邮箱 SMTP，可选）
+
+默认未配置邮件服务：注册免验证码、"忘记密码"入口隐藏，一切照旧。接上 QQ 邮箱后：
+
+1. QQ 邮箱网页版 → 设置 → 账户 → 开启「POP3/IMAP/SMTP 服务」→ 生成**授权码**（不是 QQ 密码）
+2. 配置环境变量后重启：
+
+```powershell
+$env:APP_MAIL_ENABLED  = "true"
+$env:APP_MAIL_USERNAME = "你的QQ号@qq.com"   # 也是发件人
+$env:APP_MAIL_PASSWORD = "QQ邮箱授权码"       # 注意不是 QQ 密码
+```
+
+生效后注册需要 6 位邮箱验证码（10 分钟有效、60 秒重发间隔、错 5 次作废），登录页出现「忘记密码？」入口，可用邮箱验证码自助重置密码。
+
+- **本地联调不想收真实邮件**：`$env:APP_MAIL_DEV_MODE = "true"`，验证码直接打印在日志里并回传给前端（仅限本地，上线务必关掉）
+- 其他邮箱：`APP_MAIL_HOST` / `APP_MAIL_PORT` / `APP_MAIL_SSL`（如 163 用 `smtp.163.com:465`）
 
 ## 语音输入输出
 
