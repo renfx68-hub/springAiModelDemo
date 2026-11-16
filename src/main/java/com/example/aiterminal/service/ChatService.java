@@ -57,20 +57,24 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChatMessage> loadHistory(String sessionId) {
+    public List<ChatMessage> loadHistory(String sessionId, String ownerId) {
+        sessionService.requireSession(sessionId, ownerId);
         return messageRepository.findBySessionIdOrderByCreatedAtAscIdAsc(sessionId);
     }
 
-    public Flux<StreamEvent> stream(String sessionId, String userText, String imageBase64, boolean professional) {
+    public Flux<StreamEvent> stream(String sessionId, String ownerId, String userText, String imageBase64,
+            boolean professional) {
         if (apiKey.isBlank() || "missing".equalsIgnoreCase(apiKey)) {
             return Flux.just(StreamEvent.error("API_KEY_MISSING", "尚未配置模型 API Key，请设置 OPENAI_API_KEY 后重启服务。"));
         }
 
         try {
-            sessionService.requireSession(sessionId);
+            sessionService.requireSession(sessionId, ownerId);
             boolean hasImage = imageBase64 != null && !imageBase64.isBlank();
             String imageUrl = hasImage ? imageStorage.save(imageBase64.trim()) : null;
-            List<ChatMessage> history = trimHistory(loadHistory(sessionId), settings.maxHistoryTurns());
+            List<ChatMessage> history = trimHistory(
+                    messageRepository.findBySessionIdOrderByCreatedAtAscIdAsc(sessionId),
+                    settings.maxHistoryTurns());
             String systemPrompt = professional ? settings.professionalPrompt() : settings.systemPrompt();
             List<Message> promptMessages = new ArrayList<>();
             promptMessages.add(new SystemMessage(systemPrompt.replace(

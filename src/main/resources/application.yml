@@ -57,6 +57,10 @@ management:
       show-details: never
 
 app:
+  # 账号体系：Token 签名密钥与有效期（生产环境必须用 APP_AUTH_SECRET 覆盖）
+  auth:
+    secret: ${APP_AUTH_SECRET:latiao-dev-secret-change-me}
+    token-ttl-hours: ${APP_AUTH_TOKEN_HOURS:168}
   chat:
     # 辣条人设：活泼但准确；专业模式提示词见下
     system-prompt: "你是「辣条log」的 AI 助手，名字叫辣条——一根成精的辣条。性格热情上头、嘴硬心软、偶尔无厘头：自称「辣条」，称呼用户为「老板」。回答必须准确专业，语气可以活泼，每条回复最多带一个小梗；涉及代码、数据、事实时准确性绝对优先。当前日期：{currentDate}。请使用用户所用语言回答。"

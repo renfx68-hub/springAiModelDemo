@@ -14,7 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 会话生命周期与历史消息读取业务。 */
+/** 会话生命周期与历史消息读取业务；所有操作都限定在所属用户名下。 */
 @Service
 public class SessionService {
 
@@ -27,40 +27,43 @@ public class SessionService {
     }
 
     @Transactional
-    public SessionResponse create(String title) {
+    public SessionResponse create(String title, String ownerId) {
         Instant now = Instant.now();
-        return toResponse(sessionRepository.save(new ChatSession(UUID.randomUUID().toString(), title, now)), List.of());
+        return toResponse(sessionRepository.save(
+                new ChatSession(UUID.randomUUID().toString(), title, ownerId, now)), List.of());
     }
 
     @Transactional(readOnly = true)
-    public List<SessionResponse> list() {
-        return sessionRepository.findAllByOrderByUpdatedAtDesc().stream()
+    public List<SessionResponse> list(String ownerId) {
+        return sessionRepository.findAllByOwnerIdOrderByUpdatedAtDesc(ownerId).stream()
                 .map(session -> toResponse(session, List.of())).toList();
     }
 
     @Transactional(readOnly = true)
-    public SessionResponse get(String id) {
-        ChatSession session = requireSession(id);
+    public SessionResponse get(String id, String ownerId) {
+        ChatSession session = requireSession(id, ownerId);
         List<MessageResponse> messages = messageRepository.findBySessionIdOrderByCreatedAtAscIdAsc(id)
                 .stream().map(SessionService::toMessageResponse).toList();
         return toResponse(session, messages);
     }
 
     @Transactional
-    public SessionResponse rename(String id, String title) {
-        ChatSession session = requireSession(id);
+    public SessionResponse rename(String id, String title, String ownerId) {
+        ChatSession session = requireSession(id, ownerId);
         session.rename(title, Instant.now());
         return toResponse(sessionRepository.save(session), List.of());
     }
 
     @Transactional
-    public void delete(String id) {
-        sessionRepository.delete(requireSession(id));
+    public void delete(String id, String ownerId) {
+        sessionRepository.delete(requireSession(id, ownerId));
     }
 
+    /** 取会话并校验归属，非本人会话一律按不存在处理（不泄露存在性）。 */
     @Transactional(readOnly = true)
-    public ChatSession requireSession(String id) {
+    public ChatSession requireSession(String id, String ownerId) {
         return sessionRepository.findById(id)
+                .filter(session -> ownerId != null && ownerId.equals(session.getOwnerId()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "找不到该会话"));
     }
 
@@ -71,7 +74,8 @@ public class SessionService {
 
     @Transactional
     public MessageResponse appendMessage(String sessionId, String role, String content, String imageUrl) {
-        ChatSession session = requireSession(sessionId);
+        ChatSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "找不到该会话"));
         ChatMessage message = new ChatMessage(role, content, imageUrl, Instant.now());
         session.addMessage(message, Instant.now());
         sessionRepository.save(session);

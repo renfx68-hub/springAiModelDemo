@@ -11,12 +11,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 会话 CRUD 与消息历史接口。 */
+/** 会话 CRUD 与消息历史接口；userId 由登录拦截器注入。 */
 @RestController
 @RequestMapping("/api/sessions")
 public class SessionController {
@@ -28,29 +29,31 @@ public class SessionController {
     }
 
     @GetMapping
-    public List<SessionResponse> list() {
-        return sessionService.list();
+    public List<SessionResponse> list(@RequestAttribute("userId") String userId) {
+        return sessionService.list(userId);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public SessionResponse create(@Valid @RequestBody SessionRequest request) {
-        return sessionService.create(request.title());
+    public SessionResponse create(@RequestAttribute("userId") String userId,
+            @Valid @RequestBody SessionRequest request) {
+        return sessionService.create(request.title(), userId);
     }
 
     @GetMapping("/{id}")
-    public SessionResponse get(@PathVariable("id") String id) {
-        return sessionService.get(id);
+    public SessionResponse get(@RequestAttribute("userId") String userId, @PathVariable("id") String id) {
+        return sessionService.get(id, userId);
     }
 
     @PatchMapping("/{id}")
-    public SessionResponse rename(@PathVariable("id") String id, @Valid @RequestBody SessionRequest request) {
-        return sessionService.rename(id, request.title());
+    public SessionResponse rename(@RequestAttribute("userId") String userId, @PathVariable("id") String id,
+            @Valid @RequestBody SessionRequest request) {
+        return sessionService.rename(id, request.title(), userId);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable("id") String id) {
-        sessionService.delete(id);
+    public void delete(@RequestAttribute("userId") String userId, @PathVariable("id") String id) {
+        sessionService.delete(id, userId);
     }
 }

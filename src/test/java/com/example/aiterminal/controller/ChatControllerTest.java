@@ -1,14 +1,19 @@
 package com.example.aiterminal.controller;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.aiterminal.config.AuthInterceptor;
 import com.example.aiterminal.dto.StreamEvent;
 import com.example.aiterminal.service.ChatService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -27,12 +32,23 @@ class ChatControllerTest {
     @MockitoBean
     private ChatService chatService;
 
+    @MockitoBean
+    private AuthInterceptor authInterceptor;
+
+    @BeforeEach
+    void allowRequests() throws Exception {
+        org.mockito.Mockito.when(authInterceptor.preHandle(
+                        any(HttpServletRequest.class), any(HttpServletResponse.class), any()))
+                .thenReturn(true);
+    }
+
     @Test
     void streamEndpointWritesDeltaAndDoneEvents() throws Exception {
-        org.mockito.Mockito.when(chatService.stream("session-1", "你好", null, false))
+        org.mockito.Mockito.when(chatService.stream("session-1", "user-1", "你好", null, false))
                 .thenReturn(Flux.just(StreamEvent.delta("你好"), StreamEvent.done()));
 
         var result = mockMvc.perform(post("/api/chat/stream")
+                        .requestAttr("userId", "user-1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.TEXT_EVENT_STREAM)
                         .content("{\"sessionId\":\"session-1\",\"message\":\"你好\"}"))

@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,8 +25,9 @@ public class ChatController {
     }
 
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<StreamEvent>> stream(@Valid @RequestBody ChatRequest request) {
-        return chatService.stream(request.sessionId(), request.message(), request.imageBase64(),
+    public Flux<ServerSentEvent<StreamEvent>> stream(@RequestAttribute("userId") String userId,
+            @Valid @RequestBody ChatRequest request) {
+        return chatService.stream(request.sessionId(), userId, request.message(), request.imageBase64(),
                 Boolean.TRUE.equals(request.professional()))
                 .map(event -> ServerSentEvent.<StreamEvent>builder(event)
                         .event(event.type())

@@ -55,11 +55,11 @@ public class ImageGenerationService {
     }
 
     /** 生成图片并把「用户提问 + 助手图片」两条消息落库，返回助手消息。 */
-    public MessageResponse generate(String sessionId, String prompt) {
+    public MessageResponse generate(String sessionId, String ownerId, String prompt) {
         if (apiKey.isBlank() || "missing".equalsIgnoreCase(apiKey)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "尚未配置模型 API Key，请设置 OPENAI_API_KEY 后重启服务。");
         }
-        sessionService.requireSession(sessionId);
+        sessionService.requireSession(sessionId, ownerId);
         String remoteUrl = requestGeneration(prompt);
         byte[] bytes = download(remoteUrl);
         String imageUrl = imageStorage.save(bytes, detectMime(remoteUrl));
