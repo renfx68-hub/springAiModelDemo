@@ -15,7 +15,7 @@ class TokenServiceTest {
 
     @Test
     void issuedTokenVerifiesAndCarriesUser() {
-        TokenService service = new TokenService(new AuthSettings("test-secret", 1), objectMapper);
+        TokenService service = new TokenService(new AuthSettings("test-secret", 1, 10, 60), objectMapper);
 
         String token = service.issue("user-1", "boss@example.com");
         var payload = service.verify(token);
@@ -27,8 +27,8 @@ class TokenServiceTest {
 
     @Test
     void tamperedOrForeignTokenIsRejected() {
-        TokenService service = new TokenService(new AuthSettings("test-secret", 1), objectMapper);
-        TokenService other = new TokenService(new AuthSettings("other-secret", 1), objectMapper);
+        TokenService service = new TokenService(new AuthSettings("test-secret", 1, 10, 60), objectMapper);
+        TokenService other = new TokenService(new AuthSettings("other-secret", 1, 10, 60), objectMapper);
 
         String token = service.issue("user-1", "boss@example.com");
 
@@ -40,7 +40,7 @@ class TokenServiceTest {
 
     @Test
     void expiredTokenIsRejected() {
-        TokenService service = new TokenService(new AuthSettings("test-secret", -1), objectMapper);
+        TokenService service = new TokenService(new AuthSettings("test-secret", -1, 10, 60), objectMapper);
 
         assertFalse(service.verify(service.issue("user-1", "boss@example.com")).isPresent());
     }

@@ -45,6 +45,12 @@ public class AppUser {
         this.lastLoginAt = now;
     }
 
+    /** 重置密码后同时刷新最近登录时间，便于审计。 */
+    public void changePassword(String passwordHash, Instant now) {
+        this.passwordHash = passwordHash;
+        this.lastLoginAt = now;
+    }
+
     public String getId() { return id; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }

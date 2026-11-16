@@ -2,11 +2,13 @@ package com.example.aiterminal.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/** 账号体系配置：Token 签名密钥与有效期。生产环境务必用 APP_AUTH_SECRET 覆盖默认值。 */
+/** 账号体系配置：Token 签名密钥与有效期、验证码有效期与重发间隔。 */
 @ConfigurationProperties(prefix = "app.auth")
 public record AuthSettings(
         String secret,
-        long tokenTtlHours) {
+        long tokenTtlHours,
+        long codeTtlMinutes,
+        long codeResendSeconds) {
 
     public AuthSettings {
         if (secret == null || secret.isBlank()) {
@@ -14,6 +16,12 @@ public record AuthSettings(
         }
         if (tokenTtlHours == 0) {
             tokenTtlHours = 168;
+        }
+        if (codeTtlMinutes == 0) {
+            codeTtlMinutes = 10;
+        }
+        if (codeResendSeconds == 0) {
+            codeResendSeconds = 60;
         }
     }
 }

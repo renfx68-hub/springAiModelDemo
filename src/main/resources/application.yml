@@ -61,6 +61,21 @@ app:
   auth:
     secret: ${APP_AUTH_SECRET:latiao-dev-secret-change-me}
     token-ttl-hours: ${APP_AUTH_TOKEN_HOURS:168}
+    # 邮箱验证码：10 分钟有效、60 秒内不可重发
+    code-ttl-minutes: ${APP_AUTH_CODE_TTL_MINUTES:10}
+    code-resend-seconds: ${APP_AUTH_CODE_RESEND_SECONDS:60}
+  # 邮件（默认 QQ 邮箱；password 填「授权码」不是登录密码）
+  # QQ 邮箱开启路径：设置 → 账户 → POP3/IMAP/SMTP 服务 → 开启并生成授权码
+  mail:
+    enabled: ${APP_MAIL_ENABLED:false}
+    # 开发模式：不发真实邮件，验证码打印到日志并由接口回传，仅限本地
+    dev-mode: ${APP_MAIL_DEV_MODE:false}
+    host: ${APP_MAIL_HOST:smtp.qq.com}
+    port: ${APP_MAIL_PORT:465}
+    username: ${APP_MAIL_USERNAME:}
+    password: ${APP_MAIL_PASSWORD:}
+    from: ${APP_MAIL_FROM:${APP_MAIL_USERNAME:}}
+    ssl: ${APP_MAIL_SSL:true}
   chat:
     # 辣条人设：活泼但准确；专业模式提示词见下
     system-prompt: "你是「辣条log」的 AI 助手，名字叫辣条——一根成精的辣条。性格热情上头、嘴硬心软、偶尔无厘头：自称「辣条」，称呼用户为「老板」。回答必须准确专业，语气可以活泼，每条回复最多带一个小梗；涉及代码、数据、事实时准确性绝对优先。当前日期：{currentDate}。请使用用户所用语言回答。"
