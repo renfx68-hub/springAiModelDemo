@@ -149,6 +149,9 @@ button { color: inherit; }
 .typing-indicator i:nth-child(2) { animation-delay: .16s; }
 .typing-indicator i:nth-child(3) { animation-delay: .32s; }
 @keyframes breathe { 0%, 60%, 100% { opacity: .35; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-4px); } }
+.welcome-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px; }
+.welcome-chip { padding: 7px 13px; color: var(--text-secondary); background: var(--panel); border: 1px solid var(--border-strong); border-radius: 999px; cursor: pointer; font-size: 12.5px; }
+.welcome-chip:hover { color: var(--accent); border-color: var(--accent); }
 .user-email { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .logout-button { padding: 3px 8px; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 11px; }
 .logout-button:hover { color: var(--accent); border-color: var(--accent); }

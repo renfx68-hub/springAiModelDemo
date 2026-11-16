@@ -10,6 +10,15 @@ const input = $('#messageInput');
 const sendButton = $('#sendButton');
 const stopButton = $('#stopButton');
 const welcome = $('#welcome');
+
+// 欢迎页快捷提问：只填入输入框，用户确认后自行发送
+welcome.addEventListener('click', (event) => {
+  const chip = event.target.closest('.welcome-chip');
+  if (!chip) return;
+  input.value = chip.dataset.fill || '';
+  input.dispatchEvent(new Event('input'));
+  input.focus();
+});
 const attachButton = $('#attachButton');
 const paintButton = $('#paintButton');
 const modeButton = $('#modeButton');
