@@ -61,7 +61,7 @@ public class ChatService {
         return messageRepository.findBySessionIdOrderByCreatedAtAscIdAsc(sessionId);
     }
 
-    public Flux<StreamEvent> stream(String sessionId, String userText, String imageBase64) {
+    public Flux<StreamEvent> stream(String sessionId, String userText, String imageBase64, boolean professional) {
         if (apiKey.isBlank() || "missing".equalsIgnoreCase(apiKey)) {
             return Flux.just(StreamEvent.error("API_KEY_MISSING", "尚未配置模型 API Key，请设置 OPENAI_API_KEY 后重启服务。"));
         }
@@ -71,8 +71,9 @@ public class ChatService {
             boolean hasImage = imageBase64 != null && !imageBase64.isBlank();
             String imageUrl = hasImage ? imageStorage.save(imageBase64.trim()) : null;
             List<ChatMessage> history = trimHistory(loadHistory(sessionId), settings.maxHistoryTurns());
+            String systemPrompt = professional ? settings.professionalPrompt() : settings.systemPrompt();
             List<Message> promptMessages = new ArrayList<>();
-            promptMessages.add(new SystemMessage(settings.systemPrompt().replace(
+            promptMessages.add(new SystemMessage(systemPrompt.replace(
                     "{currentDate}", LocalDate.now().toString())));
             for (ChatMessage message : history) {
                 promptMessages.add("assistant".equals(message.getRole())

@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.chat")
 public record ChatSettings(
         String systemPrompt,
+        String professionalPrompt,
         int maxHistoryTurns,
         double temperature,
         int maxTokens,
