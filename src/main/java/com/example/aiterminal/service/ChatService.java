@@ -39,6 +39,7 @@ public class ChatService {
     private final ChatMessageRepository messageRepository;
     private final ChatSettings settings;
     private final ImageStorageService imageStorage;
+    private final MarketService marketService;
     private final String apiKey;
 
     public ChatService(
@@ -47,12 +48,14 @@ public class ChatService {
             ChatMessageRepository messageRepository,
             ChatSettings settings,
             ImageStorageService imageStorage,
+            MarketService marketService,
             @org.springframework.beans.factory.annotation.Value("${spring.ai.openai.api-key:}") String apiKey) {
         this.chatClient = chatClient;
         this.sessionService = sessionService;
         this.messageRepository = messageRepository;
         this.settings = settings;
         this.imageStorage = imageStorage;
+        this.marketService = marketService;
         this.apiKey = apiKey;
     }
 
@@ -79,6 +82,9 @@ public class ChatService {
             List<Message> promptMessages = new ArrayList<>();
             promptMessages.add(new SystemMessage(systemPrompt.replace(
                     "{currentDate}", LocalDate.now().toString())));
+            // 问到美股/纳斯达克时，把实时行情作为事实注入，避免模型凭记忆瞎报数字
+            marketService.context(userText)
+                    .ifPresent(quotes -> promptMessages.add(new SystemMessage(quotes)));
             for (ChatMessage message : history) {
                 promptMessages.add("assistant".equals(message.getRole())
                         ? new AssistantMessage(message.getContent())

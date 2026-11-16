@@ -78,6 +78,10 @@ app:
   image:
     model: ${OPENAI_IMAGE_MODEL:cogview-3-flash}
     generations-path: ${OPENAI_IMAGE_GENERATIONS_PATH:/images/generations}
+  # 美股行情连接器（腾讯财经公开行情，免费无需密钥；设为 false 可关闭）
+  market:
+    enabled: ${APP_MARKET_ENABLED:true}
+    base-url: ${APP_MARKET_BASE_URL:https://qt.gtimg.cn}
   # 语音：听（ASR 转写）与说（TTS 合成），OpenAI 兼容路径
   voice:
     asr-model: ${OPENAI_ASR_MODEL:glm-asr}
