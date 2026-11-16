@@ -9,6 +9,7 @@ const stopButton = $('#stopButton');
 const welcome = $('#welcome');
 const attachButton = $('#attachButton');
 const paintButton = $('#paintButton');
+const modeButton = $('#modeButton');
 const imageInput = $('#imageInput');
 const imagePreview = $('#imagePreview');
 const previewImg = $('#previewImg');
@@ -16,7 +17,7 @@ const removeImage = $('#removeImage');
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const state = {
   session: null, sessions: [], controller: null, busy: false,
-  activeAssistant: null, receivedDelta: false, pendingImage: null, paintMode: false,
+  activeAssistant: null, receivedDelta: false, pendingImage: null, paintMode: false, professional: false,
 };
 
 function showToast(message) {
@@ -204,6 +205,7 @@ async function sendMessage(text) {
         sessionId: state.session.id,
         message: text,
         imageBase64: state.pendingImage || undefined,
+        professional: state.professional || undefined,
       }),
       signal: state.controller.signal,
     });
@@ -337,6 +339,28 @@ paintButton.addEventListener('click', () => {
   paintButton.classList.toggle('active', state.paintMode);
   showToast(state.paintMode ? '画画模式已开启：输入描述直接生成图片' : '已切回聊天模式');
 });
+modeButton.addEventListener('click', () => {
+  state.professional = !state.professional;
+  modeButton.classList.toggle('active', state.professional);
+  showToast(state.professional ? '专业模式已开启：严谨回答，不上梗' : '已切回辣条模式 🌶️');
+});
+
+const themeToggle = $('#themeToggle');
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const isLight = theme === 'light';
+  themeToggle.textContent = isLight ? '🌙' : '☀️';
+  themeToggle.title = isLight ? '切换到夜间主题' : '切换到白天主题';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = isLight ? '#faf7f4' : '#111318';
+}
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  try { localStorage.setItem('latiao-theme', next); } catch (error) { /* 忽略存储失败 */ }
+  applyTheme(next);
+  showToast(next === 'light' ? '白天模式：清爽一点 👀' : '夜间模式：辣条加班时间 🌙');
+});
+applyTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
 imageInput.addEventListener('change', () => selectImageFile(imageInput.files[0]));
 removeImage.addEventListener('click', clearPendingImage);
 input.addEventListener('paste', (event) => {

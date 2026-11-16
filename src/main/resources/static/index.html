@@ -4,7 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111318">
-  <title>AI 聊天终端</title>
+  <title>辣条log · 有点上头的 AI 助手</title>
+  <script>
+    (function () {
+      var theme = 'dark';
+      try {
+        theme = localStorage.getItem('latiao-theme')
+          || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      } catch (error) { /* 隐私模式等场景降级为夜间 */ }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
   <link rel="stylesheet" href="/vendor/highlight.css">
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -12,7 +22,7 @@
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-top">
-        <div class="brand"><span class="brand-mark">✦</span><span>AI 终端</span></div>
+        <div class="brand"><span class="brand-mark">🌶️</span><span>辣条log</span></div>
         <button class="icon-button mobile-close" id="closeSidebar" aria-label="关闭会话列表">×</button>
       </div>
       <button class="new-session" id="newSession"><span>＋</span> 新建会话</button>
@@ -27,13 +37,14 @@
       <header class="topbar">
         <button class="icon-button menu-button" id="openSidebar" aria-label="打开会话列表">☰</button>
         <div class="current-title" id="currentTitle">新建会话</div>
+        <button class="icon-button" id="themeToggle" title="切换白天/夜间主题" aria-label="切换主题">🌙</button>
         <button class="icon-button" id="renameSession" title="重命名会话" aria-label="重命名会话">✎</button>
       </header>
       <section class="conversation" id="conversation" aria-live="polite">
         <div class="welcome" id="welcome">
-          <div class="welcome-icon">✦</div>
-          <h1>有什么可以帮忙的？</h1>
-          <p>开始一段新对话，模型回复会实时显示在这里。</p>
+          <div class="welcome-icon">🌶️</div>
+          <h1>老板来啦，辣条在的！</h1>
+          <p>想聊点啥？可以让我看图 📎、画画 🎨，也可以直接开吹～</p>
         </div>
         <div class="message-list" id="messageList"></div>
       </section>
@@ -47,6 +58,7 @@
           <div class="composer-actions">
             <input type="file" id="imageInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
             <button type="button" class="icon-button paint-button" id="paintButton" title="画画模式：输入描述直接生成图片" aria-label="画画模式">🎨</button>
+            <button type="button" class="icon-button mode-button" id="modeButton" title="专业模式：严谨回答不上梗" aria-label="专业模式">🧑‍💼</button>
             <button type="button" class="icon-button attach-button" id="attachButton" title="发送图片" aria-label="发送图片">📎</button>
             <span class="keyboard-hint">Enter 发送 · Shift+Enter 换行</span>
             <button type="button" class="stop-button" id="stopButton" hidden>停止生成</button>
