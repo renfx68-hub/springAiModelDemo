@@ -39,7 +39,9 @@ spring:
       mode: never
   servlet:
     multipart:
-      enabled: false
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 25MB
 
 server:
   port: ${SERVER_PORT:8080}
@@ -72,3 +74,10 @@ app:
   image:
     model: ${OPENAI_IMAGE_MODEL:cogview-3-flash}
     generations-path: ${OPENAI_IMAGE_GENERATIONS_PATH:/images/generations}
+  # 语音：听（ASR 转写）与说（TTS 合成），OpenAI 兼容路径
+  voice:
+    asr-model: ${OPENAI_ASR_MODEL:glm-asr}
+    tts-model: ${OPENAI_TTS_MODEL:glm-tts}
+    voice: ${OPENAI_TTS_VOICE:tongtong}
+    transcriptions-path: ${OPENAI_ASR_PATH:/audio/transcriptions}
+    speech-path: ${OPENAI_TTS_PATH:/audio/speech}
