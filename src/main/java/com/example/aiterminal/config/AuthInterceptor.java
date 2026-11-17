@@ -11,7 +11,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
  * 校验 Bearer token 并把 userId 放进请求属性。
- * 放行：/api/auth/**（登录注册，其中 /api/auth/me 仍需登录）、/api/images/**（&lt;img&gt; 标签无法携带请求头）、OPTIONS 预检。
+ * 放行：/api/auth/**（登录注册，其中 /api/auth/me 仍需登录）、GET /api/images/{文件}（&lt;img&gt; 标签无法携带请求头，仅限图片文件）、OPTIONS 预检。
+ * 注意 /api/images/generate（文生图）仍需登录，否则统一 401。
  */
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
@@ -31,7 +32,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         String path = request.getRequestURI();
         boolean anonymousAuthPath = path.startsWith("/api/auth/") && !path.equals("/api/auth/me");
-        if (!path.startsWith("/api/") || path.startsWith("/api/images/") || anonymousAuthPath) {
+        boolean anonymousImageFile = "GET".equalsIgnoreCase(request.getMethod())
+                && path.matches("/api/images/[^/]+");
+        if (!path.startsWith("/api/") || anonymousImageFile || anonymousAuthPath) {
             return true;
         }
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
