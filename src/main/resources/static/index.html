@@ -26,6 +26,7 @@
         <button class="icon-button mobile-close" id="closeSidebar" aria-label="关闭会话列表">×</button>
       </div>
       <button class="new-session" id="newSession"><span>＋</span> 新建会话</button>
+      <input type="search" class="session-search" id="sessionSearch" placeholder="搜索会话…" aria-label="搜索会话">
       <div class="session-heading">最近会话</div>
       <nav class="session-list" id="sessionList" aria-label="会话列表"></nav>
       <div class="sidebar-bottom">
@@ -39,6 +40,7 @@
         <button class="icon-button menu-button" id="openSidebar" aria-label="打开会话列表">☰</button>
         <div class="current-title" id="currentTitle">新建会话</div>
         <button class="icon-button" id="themeToggle" title="切换白天/夜间主题" aria-label="切换主题">🌙</button>
+        <button class="icon-button" id="exportSession" title="导出本会话为 Markdown" aria-label="导出会话">⬇️</button>
         <button class="icon-button" id="renameSession" title="重命名会话" aria-label="重命名会话">✎</button>
       </header>
       <section class="conversation" id="conversation" aria-live="polite">
@@ -70,6 +72,7 @@
             <button type="button" class="icon-button attach-button" id="attachButton" title="发送图片" aria-label="发送图片">📎</button>
             <button type="button" class="icon-button mic-button" id="micButton" title="语音输入：点击开始录音，再点结束并转文字" aria-label="语音输入">🎤</button>
             <span class="keyboard-hint">Enter 发送 · Shift+Enter 换行</span>
+            <button type="button" class="stop-button" id="regenerateButton" title="重新生成最后一条回答" hidden>↻ 重新生成</button>
             <button type="button" class="stop-button" id="stopButton" hidden>停止生成</button>
             <button type="submit" class="send-button" id="sendButton" aria-label="发送">↑</button>
           </div>

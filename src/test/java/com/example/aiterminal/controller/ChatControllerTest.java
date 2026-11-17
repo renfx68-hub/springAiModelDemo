@@ -62,4 +62,23 @@ class ChatControllerTest {
                 .andExpect(content().string(containsString("\"content\":\"")))
                 .andExpect(content().string(containsString("event:done")));
     }
+
+    @Test
+    void regenerateEndpointStreamsNewAnswer() throws Exception {
+        org.mockito.Mockito.when(chatService.regenerate("session-1", "user-1", false, true))
+                .thenReturn(Flux.just(StreamEvent.delta("重新"), StreamEvent.done()));
+
+        var result = mockMvc.perform(post("/api/chat/regenerate")
+                        .requestAttr("userId", "user-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM)
+                        .content("{\"sessionId\":\"session-1\",\"legal\":true}"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("event:delta")))
+                .andExpect(content().string(containsString("event:done")));
+    }
 }

@@ -94,51 +94,102 @@ public class ChatService {
             }
             promptMessages.add(buildUserMessage(userText, imageUrl));
             sessionService.appendMessage(sessionId, "user", userText, imageUrl);
-
-            var optionsBuilder = OpenAiChatOptions.builder()
-                    .temperature(settings.temperature())
-                    .maxTokens(settings.maxTokens())
-                    .topP(settings.topP());
-            if (hasImage && settings.visionModel() != null && !settings.visionModel().isBlank()) {
-                optionsBuilder.model(settings.visionModel());
-            }
-            var options = optionsBuilder.build();
-            AtomicReference<StringBuilder> answer = new AtomicReference<>(new StringBuilder());
-            AtomicBoolean saved = new AtomicBoolean();
-            Flux<ChatResponse> modelStream = chatClient.prompt(
-                            new org.springframework.ai.chat.prompt.Prompt(promptMessages, options))
-                    .stream()
-                    .chatResponse();
-            Flux<StreamEvent> response = modelStream
-                    .map(ChatService::responseText)
-                    .filter(text -> !text.isEmpty())
-                    .doOnNext(text -> answer.get().append(text))
-                    .map(StreamEvent::delta)
-                    .concatWith(Mono.fromRunnable(() ->
-                                    persistPartial(sessionId, answer.get().toString(), saved))
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .thenReturn(StreamEvent.done()))
-                    .onErrorResume(error -> Mono.fromRunnable(() ->
-                                    persistPartial(sessionId, answer.get().toString(), saved))
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .thenReturn(toErrorEvent(error)))
-                    .doFinally(signal -> {
-                        if (signal == reactor.core.publisher.SignalType.CANCEL) {
-                            Mono.fromRunnable(() ->
-                                            persistPartial(sessionId, answer.get().toString(), saved))
-                                    .subscribeOn(Schedulers.boundedElastic())
-                                    .doOnError(saveError -> log.error(
-                                            "Failed to persist cancelled assistant response for session {}",
-                                            sessionId, saveError))
-                                    .subscribe();
-                        }
-                    });
-            return response;
+            return respond(sessionId, promptMessages, hasImage);
         } catch (ApiException exception) {
             return Flux.just(StreamEvent.error("SESSION_NOT_FOUND", exception.getMessage()));
         } catch (RuntimeException exception) {
             return Flux.just(toErrorEvent(exception));
         }
+    }
+
+    /**
+     * 重新生成：删除最后一条回答，沿用其用户提问的上下文重新流式生成。
+     * 没有历史回答或最后一条本身就是回答时返回错误提示。
+     */
+    public Flux<StreamEvent> regenerate(String sessionId, String ownerId, boolean professional, boolean legal) {
+        if (apiKey.isBlank() || "missing".equalsIgnoreCase(apiKey)) {
+            return Flux.just(StreamEvent.error("API_KEY_MISSING", "尚未配置模型 API Key，请设置 OPENAI_API_KEY 后重启服务。"));
+        }
+        try {
+            sessionService.requireSession(sessionId, ownerId);
+            List<ChatMessage> all = messageRepository.findBySessionIdOrderByCreatedAtAscIdAsc(sessionId);
+            int lastUserIndex = -1;
+            for (int index = all.size() - 1; index >= 0; index--) {
+                if ("user".equals(all.get(index).getRole())) {
+                    lastUserIndex = index;
+                    break;
+                }
+            }
+            if (lastUserIndex < 0 || lastUserIndex == all.size() - 1) {
+                return Flux.just(StreamEvent.error("NOTHING_TO_REGENERATE", "没有可以重新生成的回答。"));
+            }
+            List<Long> staleIds = all.subList(lastUserIndex + 1, all.size()).stream()
+                    .map(ChatMessage::getId).toList();
+            messageRepository.deleteAllById(staleIds);
+            List<ChatMessage> history = trimHistory(
+                    all.subList(0, lastUserIndex + 1), settings.maxHistoryTurns());
+            String systemPrompt = legal
+                    ? settings.legalPrompt()
+                    : (professional ? settings.professionalPrompt() : settings.systemPrompt());
+            List<Message> promptMessages = new ArrayList<>();
+            promptMessages.add(new SystemMessage(systemPrompt.replace(
+                    "{currentDate}", LocalDate.now().toString())));
+            // 重新生成沿用原提问的意图识别（行情注入等）
+            marketService.context(all.get(lastUserIndex).getContent())
+                    .ifPresent(quotes -> promptMessages.add(new SystemMessage(quotes)));
+            for (ChatMessage message : history) {
+                promptMessages.add("assistant".equals(message.getRole())
+                        ? new AssistantMessage(message.getContent())
+                        : buildUserMessage(message.getContent(), message.getImageUrl()));
+            }
+            return respond(sessionId, promptMessages, false);
+        } catch (ApiException exception) {
+            return Flux.just(StreamEvent.error("SESSION_NOT_FOUND", exception.getMessage()));
+        } catch (RuntimeException exception) {
+            return Flux.just(toErrorEvent(exception));
+        }
+    }
+
+    /** 调用模型并组装流式事件；完成/出错/取消时持久化已生成部分。 */
+    private Flux<StreamEvent> respond(String sessionId, List<Message> promptMessages, boolean vision) {
+        var optionsBuilder = OpenAiChatOptions.builder()
+                .temperature(settings.temperature())
+                .maxTokens(settings.maxTokens())
+                .topP(settings.topP());
+        if (vision && settings.visionModel() != null && !settings.visionModel().isBlank()) {
+            optionsBuilder.model(settings.visionModel());
+        }
+        var options = optionsBuilder.build();
+        AtomicReference<StringBuilder> answer = new AtomicReference<>(new StringBuilder());
+        AtomicBoolean saved = new AtomicBoolean();
+        Flux<ChatResponse> modelStream = chatClient.prompt(
+                        new org.springframework.ai.chat.prompt.Prompt(promptMessages, options))
+                .stream()
+                .chatResponse();
+        return modelStream
+                .map(ChatService::responseText)
+                .filter(text -> !text.isEmpty())
+                .doOnNext(text -> answer.get().append(text))
+                .map(StreamEvent::delta)
+                .concatWith(Mono.fromRunnable(() ->
+                                persistPartial(sessionId, answer.get().toString(), saved))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .thenReturn(StreamEvent.done()))
+                .onErrorResume(error -> Mono.fromRunnable(() ->
+                                persistPartial(sessionId, answer.get().toString(), saved))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .thenReturn(toErrorEvent(error)))
+                .doFinally(signal -> {
+                    if (signal == reactor.core.publisher.SignalType.CANCEL) {
+                        Mono.fromRunnable(() ->
+                                        persistPartial(sessionId, answer.get().toString(), saved))
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .doOnError(saveError -> log.error(
+                                        "Failed to persist cancelled assistant response for session {}",
+                                        sessionId, saveError))
+                                .subscribe();
+                    }
+                });
     }
 
     /** 构建用户消息；带图片时附加媒体内容，图片文件缺失时退化为纯文本。 */

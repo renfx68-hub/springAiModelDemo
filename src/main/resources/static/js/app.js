@@ -111,7 +111,17 @@ function selectImageFile(file) {
 
 function renderSessionItems() {
   sessionList.replaceChildren();
-  for (const session of state.sessions) {
+  const query = ($('#sessionSearch')?.value || '').trim().toLowerCase();
+  const visible = query
+    ? state.sessions.filter((session) => (session.title || '').toLowerCase().includes(query))
+    : state.sessions;
+  if (!visible.length && query) {
+    const empty = document.createElement('div');
+    empty.className = 'session-empty';
+    empty.textContent = '没有匹配的会话';
+    sessionList.append(empty);
+  }
+  for (const session of visible) {
     const button = document.createElement('button');
     button.className = `session-item${state.session?.id === session.id ? ' active' : ''}`;
     button.type = 'button';
@@ -151,7 +161,14 @@ function resetConversation() {
   welcome.hidden = false;
   $('#currentTitle').textContent = '新建会话';
   renderSessionItems();
+  updateRegenerateVisibility();
   localStorage.removeItem('ai-terminal-session');
+}
+
+/** 会话里有助手回答且当前不忙时，才显示「重新生成」。 */
+function updateRegenerateVisibility() {
+  $('#regenerateButton').hidden =
+    state.busy || !state.session || !messageList.querySelector('.message-assistant');
 }
 
 async function selectSession(id) {
@@ -166,6 +183,7 @@ async function selectSession(id) {
     }
     localStorage.setItem('ai-terminal-session', session.id);
     renderSessionItems();
+    updateRegenerateVisibility();
     scrollToBottom();
     $('#sidebar').classList.remove('sidebar-open');
   } catch (error) { showToast(error.message); }
@@ -268,6 +286,7 @@ async function sendMessage(text) {
     await refreshSessions();
     state.session = await api(`/api/sessions/${encodeURIComponent(state.session.id)}`);
     renderSessionItems();
+    updateRegenerateVisibility();
   } catch (error) {
     if (state.activeAssistant && !state.receivedDelta) state.activeAssistant.row.remove();
     if (error.name !== 'AbortError') showToast(error.message || '连接中断，请稍后重试。');
@@ -349,6 +368,89 @@ input.addEventListener('input', () => {
 stopButton.addEventListener('click', () => {
   if (!state.receivedDelta) state.activeAssistant?.row.remove();
   state.controller?.abort();
+});
+
+$('#sessionSearch').addEventListener('input', renderSessionItems);
+
+// 重新生成：删除最后一条回答，按相同上下文重新流式输出
+$('#regenerateButton').addEventListener('click', async () => {
+  if (state.busy || !state.session) return;
+  const assistantRows = messageList.querySelectorAll('.message-assistant');
+  if (!assistantRows.length) return;
+  assistantRows[assistantRows.length - 1].remove();
+  const assistant = appendRenderedMessage(messageList, 'assistant', '', { loading: true });
+  state.activeAssistant = assistant;
+  state.receivedDelta = false;
+  updateBusy(true);
+  state.controller = new AbortController();
+  scrollToBottom();
+  try {
+    const response = await fetch('/api/chat/regenerate', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json', Accept: 'text/event-stream' }),
+      body: JSON.stringify({
+        sessionId: state.session.id,
+        professional: state.professional || undefined,
+        legal: state.legal || undefined,
+      }),
+      signal: state.controller.signal,
+    });
+    if (!response.ok) throw new Error(`重新生成失败（${response.status}）`);
+    let answer = '';
+    let receivedDelta = false;
+    await readSse(response, (eventName, event) => {
+      if (eventName === 'delta' || event.type === 'delta') {
+        if (!receivedDelta) {
+          assistant.body.replaceChildren();
+          receivedDelta = true;
+          state.receivedDelta = true;
+        }
+        answer += event.content || '';
+        assistant.body.replaceChildren(renderMarkdown(answer));
+        scrollToBottom();
+      } else if (eventName === 'error' || event.type === 'error') {
+        throw new Error(event.message || '模型服务发生错误');
+      }
+    });
+    if (!receivedDelta) assistant.row.remove();
+    else attachSpeakButton(assistant.body, answer);
+    state.session = await api(`/api/sessions/${encodeURIComponent(state.session.id)}`);
+    updateRegenerateVisibility();
+  } catch (error) {
+    if (state.activeAssistant && !state.receivedDelta) state.activeAssistant.row.remove();
+    if (error.name !== 'AbortError') showToast(error.message || '重新生成失败。');
+  } finally {
+    state.controller = null;
+    state.activeAssistant = null;
+    state.receivedDelta = false;
+    updateBusy(false);
+    updateRegenerateVisibility();
+  }
+});
+
+// 导出当前会话为 Markdown 文件下载
+$('#exportSession').addEventListener('click', async () => {
+  if (!state.session) {
+    showToast('请先选择一个会话');
+    return;
+  }
+  try {
+    const session = await api(`/api/sessions/${encodeURIComponent(state.session.id)}`);
+    const lines = [`# ${session.title}`, '', `> 导出自 辣条log · ${new Date().toLocaleString('zh-CN')}`, ''];
+    for (const message of session.messages) {
+      lines.push(message.role === 'user' ? '## 🧑 老板' : '## 🌶️ 辣条', '', message.content || '', '');
+      if (message.imageUrl) lines.push(`![图片](${message.imageUrl})`, '');
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${(session.title || '会话').replace(/[\\/:*?"<>|]/g, '_')}.md`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showToast('会话已导出为 Markdown');
+  } catch (error) {
+    showToast(error.message || '导出失败，请稍后重试');
+  }
 });
 $('#newSession').addEventListener('click', () => {
   if (state.busy) state.controller?.abort();

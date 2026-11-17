@@ -153,6 +153,9 @@ button { color: inherit; }
 .welcome-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px; }
 .welcome-chip { padding: 7px 13px; color: var(--text-secondary); background: var(--panel); border: 1px solid var(--border-strong); border-radius: 999px; cursor: pointer; font-size: 12.5px; }
 .welcome-chip:hover { color: var(--accent); border-color: var(--accent); }
+.session-search { width: calc(100% - 24px); margin: 0 12px 10px; height: 32px; padding: 0 10px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; outline: 0; font-size: 12.5px; }
+.session-search:focus { border-color: var(--accent); }
+.session-empty { padding: 8px 12px; color: var(--text-dim); font-size: 12px; }
 .user-email { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .logout-button { padding: 3px 8px; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 11px; }
 .logout-button:hover { color: var(--accent); border-color: var(--accent); }

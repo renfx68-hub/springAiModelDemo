@@ -68,9 +68,26 @@ export function appendRenderedMessage(list, role, content, options = {}) {
   return { row, body };
 }
 
-/** 在助手消息末尾追加 🔊 朗读按钮（TTS 文本存于 dataset）。 */
+/** 在助手消息末尾追加操作按钮：复制全文 + 🔊 朗读（TTS 文本存于 dataset）。 */
 export function attachSpeakButton(body, text) {
-  if (!text || text.length > 4000) return;
+  if (!text) return;
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'tts-button copy-answer';
+  copy.textContent = '📋';
+  copy.title = '复制这条回复';
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(copy.dataset.copy || '');
+      copy.textContent = '✅';
+      window.setTimeout(() => { copy.textContent = '📋'; }, 1200);
+    } catch {
+      copy.textContent = '❌';
+    }
+  });
+  copy.dataset.copy = text;
+  body.append(copy);
+  if (text.length > 4000) return;
   const speak = document.createElement('button');
   speak.type = 'button';
   speak.className = 'tts-button';
