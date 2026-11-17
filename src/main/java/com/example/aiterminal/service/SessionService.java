@@ -18,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class SessionService {
 
+    /** 与 AuthInterceptor.ANONYMOUS 一致：账号体系关闭时的虚拟用户。 */
+    public static final String ANONYMOUS = "anonymous";
+
     private final ChatSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;
 
@@ -29,13 +32,18 @@ public class SessionService {
     @Transactional
     public SessionResponse create(String title, String ownerId) {
         Instant now = Instant.now();
+        // 匿名模式下会话保持无主（owner_id null），重新开启账号体系后由首个注册用户接管
+        String owner = ANONYMOUS.equals(ownerId) ? null : ownerId;
         return toResponse(sessionRepository.save(
-                new ChatSession(UUID.randomUUID().toString(), title, ownerId, now)), List.of());
+                new ChatSession(UUID.randomUUID().toString(), title, owner, now)), List.of());
     }
 
     @Transactional(readOnly = true)
     public List<SessionResponse> list(String ownerId) {
-        return sessionRepository.findAllByOwnerIdOrderByUpdatedAtDesc(ownerId).stream()
+        List<ChatSession> sessions = ANONYMOUS.equals(ownerId)
+                ? sessionRepository.findAllByOwnerIdIsNullOrOwnerIdOrderByUpdatedAtDesc(ownerId)
+                : sessionRepository.findAllByOwnerIdOrderByUpdatedAtDesc(ownerId);
+        return sessions.stream()
                 .map(session -> toResponse(session, List.of())).toList();
     }
 
@@ -63,7 +71,9 @@ public class SessionService {
     @Transactional(readOnly = true)
     public ChatSession requireSession(String id, String ownerId) {
         return sessionRepository.findById(id)
-                .filter(session -> ownerId != null && ownerId.equals(session.getOwnerId()))
+                .filter(session -> session.getOwnerId() != null
+                        ? ownerId != null && ownerId.equals(session.getOwnerId())
+                        : ANONYMOUS.equals(ownerId))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "找不到该会话"));
     }
 

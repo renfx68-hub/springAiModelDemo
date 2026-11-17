@@ -1,5 +1,6 @@
 package com.example.aiterminal.controller;
 
+import com.example.aiterminal.config.AuthSettings;
 import com.example.aiterminal.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -22,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final AuthSettings authSettings;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, AuthSettings authSettings) {
         this.authService = authService;
+        this.authSettings = authSettings;
     }
 
     public record RegisterRequest(
@@ -53,7 +56,8 @@ public class AuthController {
     /** 前端据此决定是否展示验证码输入与"忘记密码"。 */
     @GetMapping("/capabilities")
     public Map<String, Object> capabilities() {
-        return Map.of("mailEnabled", authService.mailEnabled(), "devMode", authService.mailDevMode());
+        return Map.of("authEnabled", authSettings.enabled(),
+                "mailEnabled", authService.mailEnabled(), "devMode", authService.mailDevMode());
     }
 
     /** 发送验证码（purpose: register / reset）；开发模式在响应里回传 devCode。 */

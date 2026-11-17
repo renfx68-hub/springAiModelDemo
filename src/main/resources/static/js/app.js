@@ -544,6 +544,7 @@ const forgotLink = $('#forgotLink');
 const backToLogin = $('#backToLogin');
 let authMode = 'login';
 let mailEnabled = false;
+let authEnabled = true;
 let codeTimer = null;
 
 function setAuthError(message) {
@@ -706,7 +707,16 @@ $('#logoutButton').addEventListener('click', async () => {
   try {
     const caps = await api('/api/auth/capabilities');
     mailEnabled = Boolean(caps?.mailEnabled);
+    authEnabled = caps?.authEnabled !== false;
   } catch { /* 取不到能力信息时按免验证码处理 */ }
+  // 账号体系开发中已关闭：游客模式直接进入聊天
+  if (!authEnabled) {
+    renderUser(null);
+    $('#userEmail').textContent = '游客模式（开发中）';
+    hideAuth();
+    await loadWorkspace();
+    return;
+  }
   if (!getToken()) {
     setAuthMode('login');
     showAuth();

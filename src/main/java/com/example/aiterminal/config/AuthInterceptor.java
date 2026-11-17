@@ -19,10 +19,15 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private static final String BEARER = "bearer ";
 
-    private final TokenService tokens;
+    /** 账号体系关闭时的虚拟用户；会话落库为无主（owner_id null），首个注册用户可接管。 */
+    public static final String ANONYMOUS = "anonymous";
 
-    public AuthInterceptor(TokenService tokens) {
+    private final TokenService tokens;
+    private final AuthSettings settings;
+
+    public AuthInterceptor(TokenService tokens, AuthSettings settings) {
         this.tokens = tokens;
+        this.settings = settings;
     }
 
     @Override
@@ -35,6 +40,12 @@ public class AuthInterceptor implements HandlerInterceptor {
         boolean anonymousImageFile = "GET".equalsIgnoreCase(request.getMethod())
                 && path.matches("/api/images/[^/]+");
         if (!path.startsWith("/api/") || anonymousImageFile || anonymousAuthPath) {
+            return true;
+        }
+        // 开发阶段总开关关闭：全部匿名放行，接口层无需感知
+        if (!settings.enabled()) {
+            request.setAttribute("userId", ANONYMOUS);
+            request.setAttribute("userEmail", "");
             return true;
         }
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);

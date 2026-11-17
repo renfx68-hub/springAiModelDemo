@@ -57,8 +57,10 @@ management:
       show-details: never
 
 app:
-  # 账号体系：Token 签名密钥与有效期（生产环境必须用 APP_AUTH_SECRET 覆盖）
+  # 账号体系：开发阶段暂时关闭（false=免登录、接口匿名放行，会话落库为无主）
+  # 功能完成后改回 true（或设 APP_AUTH_ENABLED=true），首个注册用户自动接管此前的会话
   auth:
+    enabled: ${APP_AUTH_ENABLED:false}
     secret: ${APP_AUTH_SECRET:latiao-dev-secret-change-me}
     token-ttl-hours: ${APP_AUTH_TOKEN_HOURS:168}
     # 邮箱验证码：10 分钟有效、60 秒内不可重发

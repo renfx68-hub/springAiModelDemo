@@ -12,6 +12,9 @@ public interface ChatSessionRepository extends JpaRepository<ChatSession, String
 
     List<ChatSession> findAllByOwnerIdOrderByUpdatedAtDesc(String ownerId);
 
+    /** 匿名模式：无主会话（历史数据/匿名新建）+ 显式匿名归属的会话。 */
+    List<ChatSession> findAllByOwnerIdIsNullOrOwnerIdOrderByUpdatedAtDesc(String ownerId);
+
     /** 把账号体系上线前的无主会话归属给首个注册用户。 */
     @Modifying
     @Query("update ChatSession s set s.ownerId = :ownerId where s.ownerId is null")

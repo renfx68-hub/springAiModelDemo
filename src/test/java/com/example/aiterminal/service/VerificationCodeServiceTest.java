@@ -14,7 +14,7 @@ import org.springframework.http.HttpStatus;
 class VerificationCodeServiceTest {
 
     private static VerificationCodeService service(long ttlMinutes, long resendSeconds) {
-        return new VerificationCodeService(new AuthSettings("test-secret", 1, ttlMinutes, resendSeconds));
+        return new VerificationCodeService(new AuthSettings(true, "test-secret", 1, ttlMinutes, resendSeconds));
     }
 
     @Test
