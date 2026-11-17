@@ -30,6 +30,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const state = {
   session: null, sessions: [], controller: null, busy: false, user: null,
   activeAssistant: null, receivedDelta: false, pendingImage: null, paintMode: false, professional: false,
+  legal: false,
 };
 
 const TOKEN_KEY = 'latiao-token';
@@ -241,6 +242,7 @@ async function sendMessage(text) {
         message: text,
         imageBase64: state.pendingImage || undefined,
         professional: state.professional || undefined,
+        legal: state.legal || undefined,
       }),
       signal: state.controller.signal,
     });
@@ -378,7 +380,24 @@ paintButton.addEventListener('click', () => {
 modeButton.addEventListener('click', () => {
   state.professional = !state.professional;
   modeButton.classList.toggle('active', state.professional);
+  if (state.professional && state.legal) {
+    state.legal = false;
+    legalButton.classList.remove('active');
+  }
   showToast(state.professional ? '专业模式已开启：严谨回答，不上梗' : '已切回辣条模式 🌶️');
+});
+
+const legalButton = $('#legalButton');
+legalButton.addEventListener('click', () => {
+  state.legal = !state.legal;
+  legalButton.classList.toggle('active', state.legal);
+  if (state.legal && state.professional) {
+    state.professional = false;
+    modeButton.classList.remove('active');
+  }
+  showToast(state.legal
+    ? '⚖️ 法律模式：按结论/依据/风险/建议回答，仅供参考'
+    : '已退出法律模式');
 });
 
 const micButton = $('#micButton');

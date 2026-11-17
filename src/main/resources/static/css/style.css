@@ -134,7 +134,8 @@ button { color: inherit; }
 .paint-button { width: 30px; height: 30px; font-size: 16px; }
 .mic-button { width: 30px; height: 30px; font-size: 16px; }
 .mic-button.active { color: #fff; background: var(--accent); animation: breathe 1.15s ease-in-out infinite; }
-.paint-button.active, .mode-button.active { color: #fff; background: var(--accent); }
+.legal-button { width: 30px; height: 30px; font-size: 16px; }
+.paint-button.active, .mode-button.active, .legal-button.active { color: #fff; background: var(--accent); }
 .tts-button { display: inline-block; margin-top: 7px; padding: 2px 9px; color: var(--text-dim); background: transparent; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 12px; }
 .tts-button:hover { color: var(--text-strong); border-color: var(--border-strong); }
 .image-preview { position: relative; display: inline-flex; margin: 2px 0 10px; }
