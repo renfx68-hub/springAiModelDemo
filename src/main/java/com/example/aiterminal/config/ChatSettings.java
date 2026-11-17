@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ChatSettings(
         String systemPrompt,
         String professionalPrompt,
+        String legalPrompt,
         int maxHistoryTurns,
         double temperature,
         int maxTokens,

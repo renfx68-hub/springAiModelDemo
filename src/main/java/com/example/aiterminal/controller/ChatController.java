@@ -28,7 +28,7 @@ public class ChatController {
     public Flux<ServerSentEvent<StreamEvent>> stream(@RequestAttribute("userId") String userId,
             @Valid @RequestBody ChatRequest request) {
         return chatService.stream(request.sessionId(), userId, request.message(), request.imageBase64(),
-                Boolean.TRUE.equals(request.professional()))
+                Boolean.TRUE.equals(request.professional()), Boolean.TRUE.equals(request.legal()))
                 .map(event -> ServerSentEvent.<StreamEvent>builder(event)
                         .event(event.type())
                         .build());

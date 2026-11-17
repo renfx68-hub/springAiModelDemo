@@ -66,7 +66,7 @@ public class ChatService {
     }
 
     public Flux<StreamEvent> stream(String sessionId, String ownerId, String userText, String imageBase64,
-            boolean professional) {
+            boolean professional, boolean legal) {
         if (apiKey.isBlank() || "missing".equalsIgnoreCase(apiKey)) {
             return Flux.just(StreamEvent.error("API_KEY_MISSING", "尚未配置模型 API Key，请设置 OPENAI_API_KEY 后重启服务。"));
         }
@@ -78,7 +78,9 @@ public class ChatService {
             List<ChatMessage> history = trimHistory(
                     messageRepository.findBySessionIdOrderByCreatedAtAscIdAsc(sessionId),
                     settings.maxHistoryTurns());
-            String systemPrompt = professional ? settings.professionalPrompt() : settings.systemPrompt();
+            String systemPrompt = legal
+                    ? settings.legalPrompt()
+                    : (professional ? settings.professionalPrompt() : settings.systemPrompt());
             List<Message> promptMessages = new ArrayList<>();
             promptMessages.add(new SystemMessage(systemPrompt.replace(
                     "{currentDate}", LocalDate.now().toString())));
