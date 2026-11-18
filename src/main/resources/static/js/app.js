@@ -30,7 +30,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const state = {
   session: null, sessions: [], controller: null, busy: false, user: null,
   activeAssistant: null, receivedDelta: false, pendingImage: null, paintMode: false, professional: false,
-  legal: false,
+  legal: false, webSearch: false,
 };
 
 const TOKEN_KEY = 'latiao-token';
@@ -261,6 +261,7 @@ async function sendMessage(text) {
         imageBase64: state.pendingImage || undefined,
         professional: state.professional || undefined,
         legal: state.legal || undefined,
+        webSearch: state.webSearch || undefined,
       }),
       signal: state.controller.signal,
     });
@@ -392,6 +393,7 @@ $('#regenerateButton').addEventListener('click', async () => {
         sessionId: state.session.id,
         professional: state.professional || undefined,
         legal: state.legal || undefined,
+        webSearch: state.webSearch || undefined,
       }),
       signal: state.controller.signal,
     });
@@ -500,6 +502,15 @@ legalButton.addEventListener('click', () => {
   showToast(state.legal
     ? '⚖️ 法律模式：按结论/依据/风险/建议回答，仅供参考'
     : '已退出法律模式');
+});
+
+const webButton = $('#webButton');
+webButton.addEventListener('click', () => {
+  state.webSearch = !state.webSearch;
+  webButton.classList.toggle('active', state.webSearch);
+  showToast(state.webSearch
+    ? '🌍 联网模式：先实时搜索再回答，信息更新（约 0.01 元/次）'
+    : '已关闭联网搜索');
 });
 
 const micButton = $('#micButton');

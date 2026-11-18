@@ -44,7 +44,7 @@ class ChatControllerTest {
 
     @Test
     void streamEndpointWritesDeltaAndDoneEvents() throws Exception {
-        org.mockito.Mockito.when(chatService.stream("session-1", "user-1", "你好", null, false, false))
+        org.mockito.Mockito.when(chatService.stream("session-1", "user-1", "你好", null, false, false, false))
                 .thenReturn(Flux.just(StreamEvent.delta("你好"), StreamEvent.done()));
 
         var result = mockMvc.perform(post("/api/chat/stream")
@@ -65,7 +65,7 @@ class ChatControllerTest {
 
     @Test
     void regenerateEndpointStreamsNewAnswer() throws Exception {
-        org.mockito.Mockito.when(chatService.regenerate("session-1", "user-1", false, true))
+        org.mockito.Mockito.when(chatService.regenerate("session-1", "user-1", false, true, false))
                 .thenReturn(Flux.just(StreamEvent.delta("重新"), StreamEvent.done()));
 
         var result = mockMvc.perform(post("/api/chat/regenerate")

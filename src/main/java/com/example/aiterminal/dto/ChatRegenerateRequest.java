@@ -9,5 +9,6 @@ import jakarta.validation.constraints.NotBlank;
 public record ChatRegenerateRequest(
         @NotBlank String sessionId,
         Boolean professional,
-        Boolean legal) {
+        Boolean legal,
+        Boolean webSearch) {
 }

@@ -40,6 +40,7 @@ public class ChatService {
     private final ChatSettings settings;
     private final ImageStorageService imageStorage;
     private final MarketService marketService;
+    private final WebSearchService webSearchService;
     private final String apiKey;
 
     public ChatService(
@@ -49,6 +50,7 @@ public class ChatService {
             ChatSettings settings,
             ImageStorageService imageStorage,
             MarketService marketService,
+            WebSearchService webSearchService,
             @org.springframework.beans.factory.annotation.Value("${spring.ai.openai.api-key:}") String apiKey) {
         this.chatClient = chatClient;
         this.sessionService = sessionService;
@@ -56,6 +58,7 @@ public class ChatService {
         this.settings = settings;
         this.imageStorage = imageStorage;
         this.marketService = marketService;
+        this.webSearchService = webSearchService;
         this.apiKey = apiKey;
     }
 
@@ -66,7 +69,7 @@ public class ChatService {
     }
 
     public Flux<StreamEvent> stream(String sessionId, String ownerId, String userText, String imageBase64,
-            boolean professional, boolean legal) {
+            boolean professional, boolean legal, boolean webSearch) {
         if (apiKey.isBlank() || "missing".equalsIgnoreCase(apiKey)) {
             return Flux.just(StreamEvent.error("API_KEY_MISSING", "尚未配置模型 API Key，请设置 OPENAI_API_KEY 后重启服务。"));
         }
@@ -87,6 +90,11 @@ public class ChatService {
             // 问到美股/纳斯达克时，把实时行情作为事实注入，避免模型凭记忆瞎报数字
             marketService.context(userText)
                     .ifPresent(quotes -> promptMessages.add(new SystemMessage(quotes)));
+            // 🌍 联网模式：检索实时信息注入上下文；失败时优雅降级为普通回答
+            if (webSearch) {
+                webSearchService.search(userText)
+                        .ifPresent(context -> promptMessages.add(new SystemMessage(context)));
+            }
             for (ChatMessage message : history) {
                 promptMessages.add("assistant".equals(message.getRole())
                         ? new AssistantMessage(message.getContent())
@@ -106,7 +114,8 @@ public class ChatService {
      * 重新生成：删除最后一条回答，沿用其用户提问的上下文重新流式生成。
      * 没有历史回答或最后一条本身就是回答时返回错误提示。
      */
-    public Flux<StreamEvent> regenerate(String sessionId, String ownerId, boolean professional, boolean legal) {
+    public Flux<StreamEvent> regenerate(String sessionId, String ownerId, boolean professional, boolean legal,
+            boolean webSearch) {
         if (apiKey.isBlank() || "missing".equalsIgnoreCase(apiKey)) {
             return Flux.just(StreamEvent.error("API_KEY_MISSING", "尚未配置模型 API Key，请设置 OPENAI_API_KEY 后重启服务。"));
         }
@@ -134,9 +143,13 @@ public class ChatService {
             List<Message> promptMessages = new ArrayList<>();
             promptMessages.add(new SystemMessage(systemPrompt.replace(
                     "{currentDate}", LocalDate.now().toString())));
-            // 重新生成沿用原提问的意图识别（行情注入等）
+            // 重新生成沿用原提问的意图识别（行情注入/联网检索等）
             marketService.context(all.get(lastUserIndex).getContent())
                     .ifPresent(quotes -> promptMessages.add(new SystemMessage(quotes)));
+            if (webSearch) {
+                webSearchService.search(all.get(lastUserIndex).getContent())
+                        .ifPresent(context -> promptMessages.add(new SystemMessage(context)));
+            }
             for (ChatMessage message : history) {
                 promptMessages.add("assistant".equals(message.getRole())
                         ? new AssistantMessage(message.getContent())

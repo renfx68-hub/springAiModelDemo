@@ -101,6 +101,11 @@ app:
   market:
     enabled: ${APP_MARKET_ENABLED:true}
     base-url: ${APP_MARKET_BASE_URL:https://qt.gtimg.cn}
+  # 联网搜索（智谱 web_search 工具，复用模型 API Key，按次计费约 0.01 元/次；失败自动降级普通回答）
+  websearch:
+    enabled: ${APP_WEB_SEARCH_ENABLED:false}
+    search-engine: ${APP_WEB_SEARCH_ENGINE:search_std}
+    result-count: ${APP_WEB_SEARCH_COUNT:5}
   # 语音：听（ASR 转写）与说（TTS 合成），OpenAI 兼容路径
   voice:
     asr-model: ${OPENAI_ASR_MODEL:glm-asr}

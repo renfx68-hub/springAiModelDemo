@@ -13,5 +13,6 @@ public record ChatRequest(
         @NotBlank @Size(max = 20000) String message,
         @Size(max = 12_000_000, message = "图片过大，请压缩后重试") String imageBase64,
         Boolean professional,
-        Boolean legal) {
+        Boolean legal,
+        Boolean webSearch) {
 }
