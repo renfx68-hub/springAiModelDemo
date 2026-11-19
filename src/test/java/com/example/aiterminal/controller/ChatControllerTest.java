@@ -13,6 +13,7 @@ import com.example.aiterminal.dto.StreamEvent;
 import com.example.aiterminal.service.ChatService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,20 +44,24 @@ class ChatControllerTest {
     }
 
     @Test
-    void streamEndpointWritesDeltaAndDoneEvents() throws Exception {
-        org.mockito.Mockito.when(chatService.stream("session-1", "user-1", "你好", null, false, false, false))
-                .thenReturn(Flux.just(StreamEvent.delta("你好"), StreamEvent.done()));
+    void streamEndpointWritesSourcesDeltaAndDoneEvents() throws Exception {
+        var source = new StreamEvent.Source("Example", "https://example.com/news", "Media", null, "Snippet");
+        org.mockito.Mockito.when(chatService.stream("session-1", "user-1", "你好", null, false, false, true))
+                .thenReturn(Flux.just(StreamEvent.sources(List.of(source)),
+                        StreamEvent.delta("你好"), StreamEvent.done()));
 
         var result = mockMvc.perform(post("/api/chat/stream")
                         .requestAttr("userId", "user-1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.TEXT_EVENT_STREAM)
-                        .content("{\"sessionId\":\"session-1\",\"message\":\"你好\"}"))
+                        .content("{\"sessionId\":\"session-1\",\"message\":\"你好\",\"webSearch\":true}"))
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
         mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk())
+                .andExpect(content().string(containsString("event:sources")))
+                .andExpect(content().string(containsString("\"url\":\"https://example.com/news\"")))
                 .andExpect(content().string(containsString("event:delta")))
                 .andExpect(content().string(containsString("\"type\":\"delta\"")))
                 .andExpect(content().string(containsString("\"content\":\"")))

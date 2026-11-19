@@ -106,6 +106,7 @@ app:
     enabled: ${APP_WEB_SEARCH_ENABLED:false}
     search-engine: ${APP_WEB_SEARCH_ENGINE:search_std}
     result-count: ${APP_WEB_SEARCH_COUNT:5}
+    search-path: ${APP_WEB_SEARCH_PATH:/web_search}
   # 语音：听（ASR 转写）与说（TTS 合成），OpenAI 兼容路径
   voice:
     asr-model: ${OPENAI_ASR_MODEL:glm-asr}

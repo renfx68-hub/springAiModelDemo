@@ -8,6 +8,7 @@ import com.example.aiterminal.repository.ChatMessageRepository;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
@@ -90,10 +91,11 @@ public class ChatService {
             // 问到美股/纳斯达克时，把实时行情作为事实注入，避免模型凭记忆瞎报数字
             marketService.context(userText)
                     .ifPresent(quotes -> promptMessages.add(new SystemMessage(quotes)));
-            // 🌍 联网模式：检索实时信息注入上下文；失败时优雅降级为普通回答
+            // 联网模式：检索实时信息注入上下文；失败时优雅降级为普通回答
+            Optional<WebSearchService.SearchResult> searchResult = Optional.empty();
             if (webSearch) {
-                webSearchService.search(userText)
-                        .ifPresent(context -> promptMessages.add(new SystemMessage(context)));
+                searchResult = webSearchService.search(userText);
+                searchResult.ifPresent(result -> promptMessages.add(new SystemMessage(result.context())));
             }
             for (ChatMessage message : history) {
                 promptMessages.add("assistant".equals(message.getRole())
@@ -102,7 +104,7 @@ public class ChatService {
             }
             promptMessages.add(buildUserMessage(userText, imageUrl));
             sessionService.appendMessage(sessionId, "user", userText, imageUrl);
-            return respond(sessionId, promptMessages, hasImage);
+            return withSources(respond(sessionId, promptMessages, hasImage), searchResult, webSearch);
         } catch (ApiException exception) {
             return Flux.just(StreamEvent.error("SESSION_NOT_FOUND", exception.getMessage()));
         } catch (RuntimeException exception) {
@@ -146,21 +148,37 @@ public class ChatService {
             // 重新生成沿用原提问的意图识别（行情注入/联网检索等）
             marketService.context(all.get(lastUserIndex).getContent())
                     .ifPresent(quotes -> promptMessages.add(new SystemMessage(quotes)));
+            Optional<WebSearchService.SearchResult> searchResult = Optional.empty();
             if (webSearch) {
-                webSearchService.search(all.get(lastUserIndex).getContent())
-                        .ifPresent(context -> promptMessages.add(new SystemMessage(context)));
+                searchResult = webSearchService.search(all.get(lastUserIndex).getContent());
+                searchResult.ifPresent(result -> promptMessages.add(new SystemMessage(result.context())));
             }
             for (ChatMessage message : history) {
                 promptMessages.add("assistant".equals(message.getRole())
                         ? new AssistantMessage(message.getContent())
                         : buildUserMessage(message.getContent(), message.getImageUrl()));
             }
-            return respond(sessionId, promptMessages, false);
+            return withSources(respond(sessionId, promptMessages, false), searchResult, webSearch);
         } catch (ApiException exception) {
             return Flux.just(StreamEvent.error("SESSION_NOT_FOUND", exception.getMessage()));
         } catch (RuntimeException exception) {
             return Flux.just(toErrorEvent(exception));
         }
+    }
+
+    /** 在模型输出前先推送本次搜索来源，前端据此渲染引用卡片。 */
+    private static Flux<StreamEvent> withSources(Flux<StreamEvent> events,
+            Optional<WebSearchService.SearchResult> searchResult, boolean webSearch) {
+        if (searchResult.isEmpty()) {
+            return webSearch
+                    ? events.startWith(StreamEvent.notice("本次未获取到可用的联网结果，已按普通模式回答。"))
+                    : events;
+        }
+        List<StreamEvent.Source> sources = searchResult.get().sources().stream()
+                .map(source -> new StreamEvent.Source(source.title(), source.url(), source.media(),
+                        source.publishDate(), source.content()))
+                .toList();
+        return events.startWith(StreamEvent.sources(sources));
     }
 
     /** 调用模型并组装流式事件；完成/出错/取消时持久化已生成部分。 */

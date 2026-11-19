@@ -68,6 +68,50 @@ export function appendRenderedMessage(list, role, content, options = {}) {
   return { row, body };
 }
 
+/** 在联网回答前展示可点击的来源卡片；只接受 HTTP(S) 链接，文本一律走 textContent。 */
+export function appendSearchSources(body, sources) {
+  const entries = (Array.isArray(sources) ? sources : []).map((source, index) => {
+    try {
+      const url = new URL(source.url);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+      return { ...source, url: url.href, title: source.title || `来源 ${index + 1}` };
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+  if (!entries.length) return;
+  const section = document.createElement('section');
+  section.className = 'search-sources';
+  const heading = document.createElement('div');
+  heading.className = 'search-sources-title';
+  heading.textContent = `联网搜索 · ${entries.length} 个来源`;
+  const list = document.createElement('div');
+  list.className = 'search-source-list';
+  for (const [index, source] of entries.entries()) {
+    const link = document.createElement('a');
+    link.className = 'search-source-card';
+    link.href = source.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    const title = document.createElement('span');
+    title.className = 'search-source-name';
+    title.textContent = `[${index + 1}] ${source.title}`;
+    const meta = document.createElement('span');
+    meta.className = 'search-source-meta';
+    meta.textContent = [source.media, source.publishDate].filter(Boolean).join(' · ') || new URL(source.url).hostname;
+    link.append(title, meta);
+    if (source.content) {
+      const snippet = document.createElement('span');
+      snippet.className = 'search-source-snippet';
+      snippet.textContent = source.content;
+      link.append(snippet);
+    }
+    list.append(link);
+  }
+  section.append(heading, list);
+  body.prepend(section);
+}
+
 /** 在助手消息末尾追加操作按钮：复制全文 + 🔊 朗读（TTS 文本存于 dataset）。 */
 export function attachSpeakButton(body, text) {
   if (!text) return;

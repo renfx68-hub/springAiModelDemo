@@ -117,6 +117,19 @@ MySQL 数据保存在 `mysql-data` volume。示例密码仅供本地开发，部
 - **行情仅供参考，不构成投资建议**
 - 关闭开关：`APP_MARKET_ENABLED=false`
 
+## 联网搜索
+
+输入框旁点 **🌍** 开启联网模式，后端先调用智谱 `web_search` 检索，再让模型结合资料回答；回答前展示可点击的来源卡片，重新生成时也会沿用联网开关。
+
+```powershell
+$env:APP_WEB_SEARCH_ENABLED = "true"
+# 可选：搜索引擎与返回数量（默认 search_std、5 条）
+$env:APP_WEB_SEARCH_ENGINE = "search_std"
+$env:APP_WEB_SEARCH_COUNT = "5"
+```
+
+搜索复用 `OPENAI_API_KEY` 与 `OPENAI_BASE_URL`，按服务商价格计费。未启用、接口异常或没有有效结果时会明确提示并退回普通回答；网页内容仅作为不可信参考资料，不会作为系统指令执行。
+
 ## 账号（邮箱注册登录）
 
 > **当前开发阶段登录注册默认关闭**（`APP_AUTH_ENABLED=false`）：打开页面直接进入"游客模式"，历史会话照常用。功能完成后设 `APP_AUTH_ENABLED=true` 重新开启，**首个注册的用户会自动接管此前所有会话**。
@@ -163,7 +176,7 @@ $env:APP_MAIL_PASSWORD = "QQ邮箱授权码"       # 注意不是 QQ 密码
 - 图片保存于 `data/uploads/`，消息表存引用路径，刷新历史仍能看到图片
 - 追问同一张图时，上下文会重建图片，可继续围绕图片提问
 
-聊天流通过 `delta` 事件增量推送文本，以 `done` 结束；模型异常通过 `error` 事件返回错误码和可读消息。浏览器中止请求会取消 Reactor 上游订阅，并异步保存已收到的回答片段。
+聊天流通过 `delta` 事件增量推送文本，以 `done` 结束；联网回答先通过 `sources` 推送来源，搜索降级通过 `notice` 提示；模型异常通过 `error` 事件返回错误码和可读消息。浏览器中止请求会取消 Reactor 上游订阅，并异步保存已收到的回答片段。
 
 ## 常见问题
 

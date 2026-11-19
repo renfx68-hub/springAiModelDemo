@@ -1,4 +1,4 @@
-import { appendRenderedMessage, renderMarkdown, attachSpeakButton } from './renderer.js';
+import { appendRenderedMessage, renderMarkdown, attachSpeakButton, appendSearchSources } from './renderer.js';
 import {
   startRecording, recognizeOnce, browserAsrAvailable, canSpeakWithBrowser, speakWithBrowser,
 } from './voice.js';
@@ -268,8 +268,13 @@ async function sendMessage(text) {
     if (!response.ok) throw new Error(`聊天请求失败（${response.status}）`);
     let answer = '';
     let receivedDelta = false;
+    let sources = [];
     await readSse(response, (eventName, event) => {
-      if (eventName === 'delta' || event.type === 'delta') {
+      if (eventName === 'notice' || event.type === 'notice') {
+        showToast(event.message || '联网搜索暂不可用，已按普通模式回答');
+      } else if (eventName === 'sources' || event.type === 'sources') {
+        sources = event.sources || [];
+      } else if (eventName === 'delta' || event.type === 'delta') {
         if (!receivedDelta) {
           assistant.body.replaceChildren();
           receivedDelta = true;
@@ -283,7 +288,10 @@ async function sendMessage(text) {
       }
     });
     if (!receivedDelta) assistant.row.remove();
-    else attachSpeakButton(assistant.body, answer);
+    else {
+      appendSearchSources(assistant.body, sources);
+      attachSpeakButton(assistant.body, answer);
+    }
     await refreshSessions();
     state.session = await api(`/api/sessions/${encodeURIComponent(state.session.id)}`);
     renderSessionItems();
@@ -400,8 +408,13 @@ $('#regenerateButton').addEventListener('click', async () => {
     if (!response.ok) throw new Error(`重新生成失败（${response.status}）`);
     let answer = '';
     let receivedDelta = false;
+    let sources = [];
     await readSse(response, (eventName, event) => {
-      if (eventName === 'delta' || event.type === 'delta') {
+      if (eventName === 'notice' || event.type === 'notice') {
+        showToast(event.message || '联网搜索暂不可用，已按普通模式回答');
+      } else if (eventName === 'sources' || event.type === 'sources') {
+        sources = event.sources || [];
+      } else if (eventName === 'delta' || event.type === 'delta') {
         if (!receivedDelta) {
           assistant.body.replaceChildren();
           receivedDelta = true;
@@ -415,7 +428,10 @@ $('#regenerateButton').addEventListener('click', async () => {
       }
     });
     if (!receivedDelta) assistant.row.remove();
-    else attachSpeakButton(assistant.body, answer);
+    else {
+      appendSearchSources(assistant.body, sources);
+      attachSpeakButton(assistant.body, answer);
+    }
     state.session = await api(`/api/sessions/${encodeURIComponent(state.session.id)}`);
     updateRegenerateVisibility();
   } catch (error) {
