@@ -15,3 +15,6 @@ data/
 # ---- 日志 ----
 *.log
 logs/
+
+# ---- 独立子仓库：UE5 游戏工程（见 DuanShuiXing/README.md）----
+DuanShuiXing/
